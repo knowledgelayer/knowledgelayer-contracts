@@ -56,29 +56,29 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
      * @dev Emitted when a new course is created
      */
     event CourseCreated(
-        uint256 indexed _courseId,
-        address indexed _seller,
-        string _title,
-        string _slug,
-        string _description,
-        uint256 _price,
-        string _image
+        uint256 indexed courseId,
+        address indexed seller,
+        string title,
+        string slug,
+        string description,
+        uint256 price,
+        string image
     );
 
     /**
      * @dev Emitted when a course is bought
      */
-    event CourseBought(uint256 indexed _courseId, address indexed _buyer, uint256 _price, uint256 _fee);
+    event CourseBought(uint256 indexed courseId, address indexed buyer, uint256 price, uint256 fee);
 
     /**
      * @dev Emitted when the price of a course is updated
      */
-    event CoursePriceUpdated(uint256 indexed _courseId, uint256 _price);
+    event CoursePriceUpdated(uint256 indexed courseId, uint256 price);
 
     /**
      * @dev Emitted when the protocol fee is updated
      */
-    event ProtocolFeeUpdated(uint256 _fee);
+    event ProtocolFeeUpdated(uint256 fee);
 
     // =========================== Constructor ==============================
 

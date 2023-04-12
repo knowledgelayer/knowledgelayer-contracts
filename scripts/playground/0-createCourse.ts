@@ -26,7 +26,7 @@ async function main() {
     .createCourse(title, slug, description, price, image);
   const receipt = await tx.wait();
 
-  const id = receipt.events?.find((e) => e.event === 'CourseCreated')?.args?._courseId;
+  const id = receipt.events?.find((e) => e.event === 'CourseCreated')?.args?.courseId;
   console.log('Created new course with id: ', id);
 
   const course = await knowledgeLayerCourse.courses(0);
