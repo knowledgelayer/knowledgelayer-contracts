@@ -19,4 +19,5 @@ get-uri:
 
 #-------------- SETUP ----------------#
 
-setup: deploy create-course
+setup: deploy
+	npx hardhat run scripts/playground/setup.ts --network $(NETWORK)

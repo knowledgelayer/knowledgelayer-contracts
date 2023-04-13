@@ -14,9 +14,9 @@ async function main() {
   );
 
   // Set data
-  const price = ethers.utils.parseEther('0.00000001');
-  const title = 'Test';
-  const slug = 'test';
+  const price = ethers.utils.parseEther('1');
+  const title = 'ChatGPT Complete Guide: Learn Midjourney, ChatGPT 4 & More';
+  const slug = 'chatgpt-complete-guide';
   const description =
     'Lorem ipsum dolor sit amet consectetur adipisicing elit. Blanditiis, velit rerum reprehenderit natus omnis eligendi iure amet fugit assumenda cumque id ad qui quos alias odit iusto provident. Nostrum accusamus quae iure quod maiores!';
   const image =
