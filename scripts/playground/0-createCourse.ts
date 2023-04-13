@@ -20,7 +20,7 @@ async function main() {
   const description =
     'Lorem ipsum dolor sit amet consectetur adipisicing elit. Blanditiis, velit rerum reprehenderit natus omnis eligendi iure amet fugit assumenda cumque id ad qui quos alias odit iusto provident. Nostrum accusamus quae iure quod maiores!';
   const image =
-    'https://www.smartpassiveincome.com/wp-content/uploads/2020/04/How-to-Create-an-Online-Course.png';
+    'https://yvgbeqzuvfqmewtltglq.supabase.co/storage/v1/object/public/public/16814021907992.webp';
   const videoPlaybackId = 'a915y3226a68zhp7';
 
   const tx = await knowledgeLayerCourse
