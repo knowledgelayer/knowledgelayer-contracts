@@ -33,6 +33,7 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
         string description;
         uint256 price;
         string image;
+        string videoPlaybackId;
     }
 
     // Course id to course
@@ -62,7 +63,8 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
         string slug,
         string description,
         uint256 price,
-        string image
+        string image,
+        string videoPlaybackId
     );
 
     /**
@@ -102,15 +104,16 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
         string memory _slug,
         string memory _description,
         uint256 _price,
-        string memory _image
+        string memory _image,
+        string memory _videoPlaybackId
     ) public {
         uint256 id = nextCourseId.current();
-        Course memory course = Course(msg.sender, _title, _slug, _description, _price, _image);
+        Course memory course = Course(msg.sender, _title, _slug, _description, _price, _image, _videoPlaybackId);
         courses[id] = course;
         slugToId[_slug] = id;
         nextCourseId.increment();
 
-        emit CourseCreated(id, msg.sender, _title, _slug, _description, _price, _image);
+        emit CourseCreated(id, msg.sender, _title, _slug, _description, _price, _image, _videoPlaybackId);
     }
 
     /**

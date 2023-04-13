@@ -14,16 +14,18 @@ async function main() {
   );
 
   // Set data
-  const price = ethers.utils.parseEther('100');
+  const price = ethers.utils.parseEther('0.00000001');
   const title = 'Test';
   const slug = 'test';
   const description =
     'Lorem ipsum dolor sit amet consectetur adipisicing elit. Blanditiis, velit rerum reprehenderit natus omnis eligendi iure amet fugit assumenda cumque id ad qui quos alias odit iusto provident. Nostrum accusamus quae iure quod maiores!';
   const image =
-    'https://qqhuhpdwqoguhxekruva.supabase.co/storage/v1/object/public/public/16790793531262.webp';
+    'https://www.smartpassiveincome.com/wp-content/uploads/2020/04/How-to-Create-an-Online-Course.png';
+  const videoPlaybackId = 'a915y3226a68zhp7';
+
   const tx = await knowledgeLayerCourse
     .connect(alice)
-    .createCourse(title, slug, description, price, image);
+    .createCourse(title, slug, description, price, image, videoPlaybackId);
   const receipt = await tx.wait();
 
   const id = receipt.events?.find((e) => e.event === 'CourseCreated')?.args?.courseId;

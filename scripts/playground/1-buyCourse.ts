@@ -5,7 +5,7 @@ async function main() {
   const network = hre.network.name;
   console.log('Network:', network);
 
-  const [, , bob] = await ethers.getSigners();
+  const [bob] = await ethers.getSigners();
 
   // Get contract
   const knowledgeLayerCourse = await ethers.getContractAt(
@@ -16,7 +16,7 @@ async function main() {
   // Set data
   const courseId = 1;
   const tx = await knowledgeLayerCourse.connect(bob).buyCourse(courseId, {
-    value: ethers.utils.parseEther('100'),
+    value: ethers.utils.parseEther('0.00000001'),
   });
   await tx.wait();
 

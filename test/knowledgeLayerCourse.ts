@@ -18,6 +18,7 @@ describe('KnowledgeLayerCourse', () => {
   const coursePrice = 100;
   const courseImage =
     'https://public-files.gumroad.com/variants/utn8k57wknpyxf1zjp9ij0f8nvpv/e82ce07851bf15f5ab0ebde47958bb042197dbcdcae02aa122ef3f5b41e97c02';
+  const videoPlaybackId = 'a915y3226a68zhp7';
 
   before(async () => {
     [deployer, alice, bob] = await ethers.getSigners();
@@ -32,7 +33,14 @@ describe('KnowledgeLayerCourse', () => {
       // Alice creates a course
       const tx = await knowledgeLayerCourse
         .connect(alice)
-        .createCourse(courseTitle, courseSlug, courseDescription, coursePrice, courseImage);
+        .createCourse(
+          courseTitle,
+          courseSlug,
+          courseDescription,
+          coursePrice,
+          courseImage,
+          videoPlaybackId,
+        );
       await tx.wait();
     });
 
