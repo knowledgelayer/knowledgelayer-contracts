@@ -1,7 +1,9 @@
 import fs from 'fs';
 
 export enum ConfigProperty {
-  KnowledgeLayerCourse = 'knowledgeLayerCourseAddress',
+  KnowledgeLayerID,
+  KnowledgeLayerPlatformID,
+  KnowledgeLayerCourse,
 }
 
 const getFilename = (network: string) => `${__dirname}/${network}.json`;
