@@ -1,14 +1,18 @@
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { expect } from 'chai';
-import { ContractTransaction } from 'ethers';
+import { BigNumber, ContractTransaction } from 'ethers';
 import { ethers } from 'hardhat';
-import { KnowledgeLayerCourse } from '../typechain-types';
+import { KnowledgeLayerCourse, KnowledgeLayerID } from '../typechain-types';
 import uploadToIPFS from '../utils/uploadToIpfs';
+import deploy from '../utils/deploy';
+import { MintStatus } from '../utils/constants';
 
 describe('KnowledgeLayerCourse', () => {
   let deployer: SignerWithAddress,
     alice: SignerWithAddress,
+    aliceId: BigNumber,
     bob: SignerWithAddress,
+    knowledgeLayerID: KnowledgeLayerID,
     knowledgeLayerCourse: KnowledgeLayerCourse;
 
   const courseData = {
@@ -25,10 +29,13 @@ describe('KnowledgeLayerCourse', () => {
 
   before(async () => {
     [deployer, alice, bob] = await ethers.getSigners();
+    [knowledgeLayerID, , knowledgeLayerCourse] = await deploy();
 
-    const KnowledgeLayerCourse = await ethers.getContractFactory('KnowledgeLayerCourse');
-    knowledgeLayerCourse = await KnowledgeLayerCourse.deploy();
-    await knowledgeLayerCourse.deployed();
+    // Disable whitelist for reserved handles
+    await knowledgeLayerID.connect(deployer).updateMintStatus(MintStatus.PUBLIC);
+
+    await knowledgeLayerID.connect(alice).mint(0, 'alice');
+    aliceId = await knowledgeLayerID.connect(alice).ids(alice.address);
   });
 
   describe('Create course', async () => {
@@ -40,14 +47,16 @@ describe('KnowledgeLayerCourse', () => {
       dataUri = uri;
 
       // Alice creates a course
-      const tx = await knowledgeLayerCourse.connect(alice).createCourse(coursePrice, dataUri);
+      const tx = await knowledgeLayerCourse
+        .connect(alice)
+        .createCourse(aliceId, coursePrice, dataUri);
       await tx.wait();
     });
 
     it('Creates course with the correct data', async () => {
       const course = await knowledgeLayerCourse.courses(courseId);
       expect(course.price).to.equal(coursePrice);
-      expect(course.seller).to.equal(alice.address);
+      expect(course.ownerId).to.equal(aliceId);
       expect(course.dataUri).to.equal(dataUri);
     });
   });
@@ -82,7 +91,9 @@ describe('KnowledgeLayerCourse', () => {
 
     before(async () => {
       // Alice updates her course price
-      const tx = await knowledgeLayerCourse.connect(alice).updateCoursePrice(courseId, newPrice);
+      const tx = await knowledgeLayerCourse
+        .connect(alice)
+        .updateCoursePrice(aliceId, courseId, newPrice);
       await tx.wait();
     });
 
@@ -92,7 +103,7 @@ describe('KnowledgeLayerCourse', () => {
     });
 
     it('Only the owner can update the course price', async () => {
-      const tx = knowledgeLayerCourse.connect(bob).updateCoursePrice(courseId, newPrice);
+      const tx = knowledgeLayerCourse.connect(bob).updateCoursePrice(aliceId, courseId, newPrice);
       expect(tx).to.be.revertedWith('Only seller can update price');
     });
   });
