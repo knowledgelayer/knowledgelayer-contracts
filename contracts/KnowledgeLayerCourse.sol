@@ -13,27 +13,17 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
     /**
      * @dev Course struct
      * @param seller Address of the seller
-     * @param title Title of the course
-     * @param slug Slug of the course
-     * @param description Description of the course
      * @param price Price of the course
-     * @param image Image of the course
+     * @param dataUri URI of the course data
      */
     struct Course {
         address seller;
-        string title;
-        string slug;
-        string description;
         uint256 price;
-        string image;
-        string videoPlaybackId;
+        string dataUri;
     }
 
     // Course id to course
     mapping(uint256 => Course) public courses;
-
-    // Mapping from slug to course id
-    mapping(string => uint256) public slugToId;
 
     // Course id counter
     Counters.Counter nextCourseId;
@@ -49,16 +39,7 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
     /**
      * @dev Emitted when a new course is created
      */
-    event CourseCreated(
-        uint256 indexed courseId,
-        address indexed seller,
-        string title,
-        string slug,
-        string description,
-        uint256 price,
-        string image,
-        string videoPlaybackId
-    );
+    event CourseCreated(uint256 indexed courseId, address indexed seller, uint256 price, string dataUri);
 
     /**
      * @dev Emitted when a course is bought
@@ -86,27 +67,16 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
 
     /**
      * @dev Creates a new course
-     * @param _title Title of the course
-     * @param _slug Slug of the course
-     * @param _description Description of the course
      * @param _price Price of the course in EURe tokens
-     * @param _image Image of the course
+     * @param _dataUri URI of the course data
      */
-    function createCourse(
-        string memory _title,
-        string memory _slug,
-        string memory _description,
-        uint256 _price,
-        string memory _image,
-        string memory _videoPlaybackId
-    ) public {
+    function createCourse(uint256 _price, string memory _dataUri) public {
         uint256 id = nextCourseId.current();
-        Course memory course = Course(msg.sender, _title, _slug, _description, _price, _image, _videoPlaybackId);
+        Course memory course = Course(msg.sender, _price, _dataUri);
         courses[id] = course;
-        slugToId[_slug] = id;
         nextCourseId.increment();
 
-        emit CourseCreated(id, msg.sender, _title, _slug, _description, _price, _image, _videoPlaybackId);
+        emit CourseCreated(id, msg.sender, _price, _dataUri);
     }
 
     /**
@@ -175,31 +145,5 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
         bytes memory
     ) public virtual override {
         revert("Token transfer is not allowed");
-    }
-
-    /**
-     * @dev See {IERC1155MetadataURI-uri}.
-     * @param _id The ID of the course
-     */
-    function uri(uint256 _id) public view virtual override returns (string memory) {
-        Course memory course = courses[_id];
-
-        return
-            string(
-                abi.encodePacked(
-                    "data:application/json;base64,",
-                    Base64.encode(
-                        bytes(
-                            abi.encodePacked(
-                                '{"title":"',
-                                course.title,
-                                '", "image":"',
-                                course.image,
-                                unicode'", "description": "KnowledgeLayer Course"}'
-                            )
-                        )
-                    )
-                )
-            );
     }
 }
