@@ -7,13 +7,6 @@ import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 
-/**
- * - support multiple tokens for payments
- * - claim function instead of sending tokens directly to owner
- * - better metadata image (with gumrua logo)
- * - off-chain data with more info about the course?
- */
-
 contract KnowledgeLayerCourse is ERC1155, Ownable {
     using Counters for Counters.Counter;
 
