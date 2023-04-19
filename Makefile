@@ -8,6 +8,9 @@ deploy:
 
 #-------------- PLAYGROUND ----------------#
 
+mint-id:
+	npx hardhat run scripts/playground/0-mintId.ts --network $(NETWORK)
+
 create-course:
 	npx hardhat run scripts/playground/0-createCourse.ts --network $(NETWORK)
 
