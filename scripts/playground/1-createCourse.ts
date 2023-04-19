@@ -8,7 +8,12 @@ async function main() {
 
   const [, alice] = await ethers.getSigners();
 
-  // Get contract
+  // Get contracts
+  const knowledgeLayerID = await ethers.getContractAt(
+    'KnowledgeLayerID',
+    getDeploymentProperty(network, ConfigProperty.KnowledgeLayerID),
+  );
+
   const knowledgeLayerCourse = await ethers.getContractAt(
     'KnowledgeLayerCourse',
     getDeploymentProperty(network, ConfigProperty.KnowledgeLayerCourse),
@@ -27,7 +32,8 @@ async function main() {
   const dataUri = await uploadToIPFS(courseData);
   if (!dataUri) throw new Error('Failed to upload to IPFS');
 
-  const tx = await knowledgeLayerCourse.connect(alice).createCourse(coursePrice, dataUri);
+  const aliceId = await knowledgeLayerID.connect(alice).ids(alice.address);
+  const tx = await knowledgeLayerCourse.connect(alice).createCourse(aliceId, coursePrice, dataUri);
   const receipt = await tx.wait();
 
   const id = receipt.events?.find((e) => e.event === 'CourseCreated')?.args?.courseId;
