@@ -234,7 +234,6 @@ contract KnowledgeLayerID is Ownable, ERC721 {
         // Increment counter to start profile ids at index 1
         nextProfileId.increment();
         mintStatus = MintStatus.ONLY_WHITELIST;
-        updateShortHandlesMaxPrice(200 ether);
     }
 
     // =========================== View functions ==============================

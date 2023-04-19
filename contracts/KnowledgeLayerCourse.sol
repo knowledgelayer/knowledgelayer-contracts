@@ -1,23 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Base64.sol";
+import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
+
+import {IKnowledgeLayerID} from "./interfaces/IKnowledgeLayerID.sol";
 
 contract KnowledgeLayerCourse is ERC1155, Ownable {
     using Counters for Counters.Counter;
 
     /**
      * @dev Course struct
-     * @param seller Address of the seller
+     * @param ownerId KnowledgeLayer ID of the teacher
      * @param price Price of the course
      * @param dataUri URI of the course data
      */
     struct Course {
-        address seller;
+        uint256 ownerId;
         uint256 price;
         string dataUri;
     }
@@ -33,6 +35,9 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
 
     // Divider used for fees
     uint16 private constant FEE_DIVIDER = 10000;
+
+    // KnowledgeLayerID contract
+    IKnowledgeLayerID private knowledgeLayerId;
 
     // =========================== Events ==============================
 
@@ -56,9 +61,24 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
      */
     event ProtocolFeeUpdated(uint256 fee);
 
+    // =========================== Modifiers ==============================
+
+    /**
+     * @notice Check if the given address is either the owner of the delegate of the given user
+     * @param _profileId The TalentLayer ID of the user
+     */
+    modifier onlyOwnerOrDelegate(uint256 _profileId) {
+        require(knowledgeLayerId.isOwnerOrDelegate(_profileId, _msgSender()), "Not owner or delegate");
+        _;
+    }
+
     // =========================== Constructor ==============================
 
-    constructor() ERC1155("") {
+    /**
+     * @param _knowledgeLayerIdAddress Address of the KnowledgeLayerID contract
+     */
+    constructor(address _knowledgeLayerIdAddress) ERC1155("") {
+        knowledgeLayerId = IKnowledgeLayerID(_knowledgeLayerIdAddress);
         setProtocolFee(500);
         nextCourseId.increment();
     }
@@ -67,12 +87,17 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
 
     /**
      * @dev Creates a new course
+     * @param _profileId The KnowledgeLayer ID of the user owner of the service
      * @param _price Price of the course in EURe tokens
      * @param _dataUri URI of the course data
      */
-    function createCourse(uint256 _price, string memory _dataUri) public {
+    function createCourse(
+        uint256 _profileId,
+        uint256 _price,
+        string memory _dataUri
+    ) public onlyOwnerOrDelegate(_profileId) {
         uint256 id = nextCourseId.current();
-        Course memory course = Course(msg.sender, _price, _dataUri);
+        Course memory course = Course(_profileId, _price, _dataUri);
         courses[id] = course;
         nextCourseId.increment();
 
@@ -81,12 +106,17 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
 
     /**
      * @dev Updates the price of the course
+     * @param _profileId The KnowledgeLayer ID of the user owner of the service
      * @param _courseId Id of the course
      * @param _price New price of the course
      */
-    function updateCoursePrice(uint256 _courseId, uint256 _price) public {
+    function updateCoursePrice(
+        uint256 _profileId,
+        uint256 _courseId,
+        uint256 _price
+    ) public onlyOwnerOrDelegate(_profileId) {
         Course storage course = courses[_courseId];
-        require(course.seller == msg.sender, "Only seller can update price");
+        require(course.ownerId == _profileId, "Not the owner");
         course.price = _price;
 
         emit CoursePriceUpdated(_courseId, _price);
@@ -104,7 +134,7 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
 
         uint256 fee = (protocolFee * msg.value) / FEE_DIVIDER;
 
-        (bool sentSeller, ) = payable(course.seller).call{value: msg.value - fee}("");
+        (bool sentSeller, ) = payable(knowledgeLayerId.ownerOf(course.ownerId)).call{value: msg.value - fee}("");
         require(sentSeller, "Failed to send Ether to seller");
 
         (bool sentOwner, ) = payable(owner()).call{value: fee}("");

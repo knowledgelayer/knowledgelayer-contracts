@@ -14,10 +14,6 @@ interface IKnowledgeLayerPlatformID is IERC721 {
         address signer;
     }
 
-    event Mint(address indexed _platformOwnerAddress, uint256 _tokenId, string _platformName);
-
-    event CidUpdated(uint256 indexed _tokenId, string _newCid);
-
     function balanceOf(address _platformAddress) external view returns (uint256);
 
     function getOriginFee(uint256 _platformId) external view returns (uint16);
