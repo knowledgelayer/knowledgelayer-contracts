@@ -39,6 +39,7 @@ async function main() {
   const KnowledgeLayerEscrow = await ethers.getContractFactory('KnowledgeLayerEscrow');
   const knowledgeLayerEscrow = await KnowledgeLayerEscrow.deploy(
     knowledgeLayerId.address,
+    knowledgeLayerPlatformId.address,
     knowledgeLayerCourse.address,
   );
   await knowledgeLayerEscrow.deployed();

@@ -26,9 +26,6 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
         string dataUri;
     }
 
-    // Divider used for fees
-    uint16 private constant FEE_DIVIDER = 10000;
-
     // Role granting Escrow permission
     bytes32 public constant ESCROW_ROLE = keccak256("ESCROW_ROLE");
 
@@ -37,9 +34,6 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
 
     // Course id counter
     Counters.Counter nextCourseId;
-
-    // Protocol fee per sale (percentage per 10,000, upgradable)
-    uint16 public protocolFee;
 
     // KnowledgeLayerID contract
     IKnowledgeLayerID private knowledgeLayerId;
@@ -61,11 +55,6 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
      */
     event CoursePriceUpdated(uint256 indexed courseId, uint256 price);
 
-    /**
-     * @dev Emitted when the protocol fee is updated
-     */
-    event ProtocolFeeUpdated(uint256 fee);
-
     // =========================== Modifiers ==============================
 
     /**
@@ -85,7 +74,6 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
     constructor(address _knowledgeLayerIdAddress) ERC1155("") {
         _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
         knowledgeLayerId = IKnowledgeLayerID(_knowledgeLayerIdAddress);
-        setProtocolFee(500);
         nextCourseId.increment();
     }
 
@@ -149,18 +137,6 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
     function buyCourse(uint256 _profileId, uint256 _courseId) public onlyRole(ESCROW_ROLE) {
         address user = knowledgeLayerId.ownerOf(_profileId);
         _mint(user, _courseId, 1, "");
-    }
-
-    // =========================== Owner functions ==============================
-
-    /**
-     * @dev Sets the protocol fee per sale
-     * @param _protocolFee Protocol fee per sale (percentage per 10,000)
-     */
-    function setProtocolFee(uint16 _protocolFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        protocolFee = _protocolFee;
-
-        emit ProtocolFeeUpdated(_protocolFee);
     }
 
     // =========================== Overrides ==============================
