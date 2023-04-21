@@ -28,5 +28,8 @@ export default async function deploy(): Promise<
   );
   await knowledgeLayerEscrow.deployed();
 
+  const escrowRole = await knowledgeLayerCourse.ESCROW_ROLE();
+  await knowledgeLayerCourse.grantRole(escrowRole, knowledgeLayerEscrow.address);
+
   return [knowledgeLayerId, knowledgeLayerPlatformId, knowledgeLayerCourse, knowledgeLayerEscrow];
 }

@@ -4,12 +4,12 @@ pragma solidity ^0.8.9;
 import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 
 import {IKnowledgeLayerID} from "./interfaces/IKnowledgeLayerID.sol";
 
-contract KnowledgeLayerCourse is ERC1155, Ownable {
+contract KnowledgeLayerCourse is ERC1155, AccessControl {
     using Counters for Counters.Counter;
 
     /**
@@ -26,6 +26,12 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
         string dataUri;
     }
 
+    // Divider used for fees
+    uint16 private constant FEE_DIVIDER = 10000;
+
+    // Role granting Escrow permission
+    bytes32 public constant ESCROW_ROLE = keccak256("ESCROW_ROLE");
+
     // Course id to course
     mapping(uint256 => Course) public courses;
 
@@ -34,9 +40,6 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
 
     // Protocol fee per sale (percentage per 10,000, upgradable)
     uint16 public protocolFee;
-
-    // Divider used for fees
-    uint16 private constant FEE_DIVIDER = 10000;
 
     // KnowledgeLayerID contract
     IKnowledgeLayerID private knowledgeLayerId;
@@ -80,6 +83,7 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
      * @param _knowledgeLayerIdAddress Address of the KnowledgeLayerID contract
      */
     constructor(address _knowledgeLayerIdAddress) ERC1155("") {
+        _setupRole(DEFAULT_ADMIN_ROLE, _msgSender());
         knowledgeLayerId = IKnowledgeLayerID(_knowledgeLayerIdAddress);
         setProtocolFee(500);
         nextCourseId.increment();
@@ -140,7 +144,7 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
      * @dev Buys the course by paying the price
      * @param _courseId Id of the course
      */
-    function buyCourse(uint256 _profileId, uint256 _courseId) public payable {
+    function buyCourse(uint256 _profileId, uint256 _courseId) public onlyRole(ESCROW_ROLE) {
         address user = knowledgeLayerId.ownerOf(_profileId);
         _mint(user, _courseId, 1, "");
     }
@@ -151,7 +155,7 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
      * @dev Sets the protocol fee per sale
      * @param _protocolFee Protocol fee per sale (percentage per 10,000)
      */
-    function setProtocolFee(uint16 _protocolFee) public onlyOwner {
+    function setProtocolFee(uint16 _protocolFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
         protocolFee = _protocolFee;
 
         emit ProtocolFeeUpdated(_protocolFee);
@@ -177,5 +181,12 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
         bytes memory
     ) public virtual override {
         revert("Token transfer is not allowed");
+    }
+
+    /**
+     * @dev See {IERC165-supportsInterface}.
+     */
+    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155, AccessControl) returns (bool) {
+        return ERC1155.supportsInterface(interfaceId) || AccessControl.supportsInterface(interfaceId);
     }
 }

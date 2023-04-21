@@ -16,6 +16,7 @@ describe('KnowledgeLayerCourse', () => {
     alice: SignerWithAddress,
     aliceId: BigNumber,
     bob: SignerWithAddress,
+    bobId: BigNumber,
     carol: SignerWithAddress,
     carolPlatformId: BigNumber,
     knowledgeLayerID: KnowledgeLayerID,
@@ -43,10 +44,13 @@ describe('KnowledgeLayerCourse', () => {
     await knowledgeLayerPlatformID.connect(carol).mint('carol-platform');
     carolPlatformId = await knowledgeLayerPlatformID.connect(carol).ids(carol.address);
 
-    // Disable whitelist and mint ID
+    // Disable whitelist and mint IDs
     await knowledgeLayerID.connect(deployer).updateMintStatus(MintStatus.PUBLIC);
     await knowledgeLayerID.connect(alice).mint(0, 'alice');
+    await knowledgeLayerID.connect(bob).mint(0, 'bob__');
+
     aliceId = await knowledgeLayerID.connect(alice).ids(alice.address);
+    bobId = await knowledgeLayerID.connect(bob).ids(bob.address);
   });
 
   describe('Create course', async () => {
@@ -73,6 +77,29 @@ describe('KnowledgeLayerCourse', () => {
     });
   });
 
+  describe('Buy course', async () => {
+    it("Fails if the caller doesn't have escrow role", async () => {
+      const escrowRole = await knowledgeLayerCourse.ESCROW_ROLE();
+      const tx = knowledgeLayerCourse.connect(bob).buyCourse(aliceId, courseId);
+      await expect(tx).to.be.revertedWith(
+        `AccessControl: account ${bob.address.toLowerCase()} is missing role ${escrowRole.toLowerCase()}`,
+      );
+    });
+
+    it("Succeeds if the caller doesn't have escrow role", async () => {
+      const escrowRole = await knowledgeLayerCourse.ESCROW_ROLE();
+      await knowledgeLayerCourse.connect(deployer).grantRole(escrowRole, bob.address);
+
+      const tx = knowledgeLayerCourse.connect(bob).buyCourse(bobId, courseId);
+      await expect(tx).to.not.be.reverted;
+    });
+
+    it('Mints a course token to Bob', async () => {
+      const balance = await knowledgeLayerCourse.balanceOf(bob.address, courseId);
+      expect(balance).to.equal(1);
+    });
+  });
+
   describe('Update course price', async () => {
     const newPrice = 200;
 
@@ -90,8 +117,8 @@ describe('KnowledgeLayerCourse', () => {
     });
 
     it('Only the owner can update the course price', async () => {
-      const tx = knowledgeLayerCourse.connect(bob).updateCoursePrice(aliceId, courseId, newPrice);
-      expect(tx).to.be.revertedWith('Only seller can update price');
+      const tx = knowledgeLayerCourse.connect(bob).updateCoursePrice(bobId, courseId, newPrice);
+      await expect(tx).to.be.revertedWith('Not the owner');
     });
   });
 
