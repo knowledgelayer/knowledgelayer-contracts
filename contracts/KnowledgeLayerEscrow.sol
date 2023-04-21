@@ -18,6 +18,9 @@ contract KnowledgeLayerEscrow is Ownable {
      * @param receiver The intended receiver of the escrow amount
      * @param amount The amount of the transaction EXCLUDING FEES
      * @param courseId The ID of the associated course
+     * @param protocolFee The % fee (per ten thousands) to be paid to the protocol
+     * @param originFee The % fee (per ten thousands) to be paid to the platform where the course was created
+     * @param buyFee The % fee (per ten thousands) to be paid to the platform where the course is being bought
      */
     struct Transaction {
         uint256 id;
@@ -25,9 +28,9 @@ contract KnowledgeLayerEscrow is Ownable {
         address receiver;
         uint256 amount;
         uint256 courseId;
-        // protocolFee;
-        // originFee;
-        // buyFee;
+        uint16 protocolFee;
+        uint16 originFee;
+        uint16 buyFee;
     }
 
     // Divider used for fees
@@ -61,7 +64,16 @@ contract KnowledgeLayerEscrow is Ownable {
      * @param amount The amount of the transaction EXCLUDING FEES
      * @param courseId The ID of the associated course
      */
-    event TransactionCreated(uint256 id, address sender, address receiver, uint256 amount, uint256 courseId);
+    event TransactionCreated(
+        uint256 id,
+        address sender,
+        address receiver,
+        uint256 amount,
+        uint256 courseId,
+        uint16 protocolFee,
+        uint16 originFee,
+        uint16 buyFee
+    );
 
     /**
      * @dev Emitted when the protocol fee is updated
@@ -114,12 +126,24 @@ contract KnowledgeLayerEscrow is Ownable {
             sender: sender,
             receiver: receiver,
             amount: course.price,
-            courseId: _courseId
+            courseId: _courseId,
+            protocolFee: protocolFee,
+            originFee: originPlatform.originFee,
+            buyFee: buyPlatform.buyFee
         });
 
         knowledgeLayerCourse.buyCourse(_profileId, _courseId);
 
-        emit TransactionCreated(id, sender, receiver, course.price, _courseId);
+        emit TransactionCreated(
+            id,
+            sender,
+            receiver,
+            course.price,
+            _courseId,
+            protocolFee,
+            originPlatform.originFee,
+            buyPlatform.buyFee
+        );
 
         return id;
     }
