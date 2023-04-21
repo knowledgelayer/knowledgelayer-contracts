@@ -140,6 +140,8 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
         emit CoursePriceUpdated(_courseId, _price);
     }
 
+    // =========================== Escrow functions ==============================
+
     /**
      * @dev Buys the course by paying the price
      * @param _courseId Id of the course
