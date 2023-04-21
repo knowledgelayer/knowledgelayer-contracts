@@ -25,5 +25,4 @@ get-uri:
 
 #-------------- SETUP ----------------#
 
-setup: deploy
-	npx hardhat run scripts/playground/setup.ts --network $(NETWORK)
+setup: deploy mint-platform-id mint-id create-course buy-course

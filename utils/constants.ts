@@ -3,3 +3,5 @@ export enum MintStatus {
   ONLY_WHITELIST,
   PUBLIC,
 }
+
+export const FEE_DIVIDER = 10000;

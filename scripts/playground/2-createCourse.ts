@@ -19,6 +19,7 @@ async function main() {
     getDeploymentProperty(network, ConfigProperty.KnowledgeLayerCourse),
   );
 
+  // Upload course data to IPFS
   const courseData = {
     title: 'My cool course',
     description:
@@ -27,13 +28,14 @@ async function main() {
       'https://yvgbeqzuvfqmewtltglq.supabase.co/storage/v1/object/public/public/16814021907992.webp',
     videoPlaybackId: 'a915y3226a68zhp7',
   };
-  const coursePrice = ethers.utils.parseEther('0.00000001');
-  const platformId = 1;
-
   const dataUri = await uploadToIPFS(courseData);
   if (!dataUri) throw new Error('Failed to upload to IPFS');
 
+  // Create course
+  const coursePrice = ethers.utils.parseEther('0.00000001');
+  const platformId = 1;
   const aliceId = await knowledgeLayerID.connect(alice).ids(alice.address);
+
   const tx = await knowledgeLayerCourse
     .connect(alice)
     .createCourse(aliceId, platformId, coursePrice, dataUri);

@@ -6,7 +6,7 @@ async function main() {
   const network = hre.network.name;
   console.log('Network:', network);
 
-  const [deployer, alice] = await ethers.getSigners();
+  const [deployer, alice, bob] = await ethers.getSigners();
 
   // Get contracts
   const knowledgeLayerID = await ethers.getContractAt(
@@ -17,10 +17,14 @@ async function main() {
   // Disable whitelist for reserved handles
   await knowledgeLayerID.connect(deployer).updateMintStatus(MintStatus.PUBLIC);
 
-  // Mint ID
+  // Mint IDs
   await knowledgeLayerID.connect(alice).mint(0, 'alice');
   const aliceId = await knowledgeLayerID.ids(alice.address);
   console.log(`Minted ID ${aliceId} for Alice`);
+
+  await knowledgeLayerID.connect(bob).mint(0, 'bob__');
+  const bobId = await knowledgeLayerID.ids(bob.address);
+  console.log(`Minted ID ${bobId} for Bob`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

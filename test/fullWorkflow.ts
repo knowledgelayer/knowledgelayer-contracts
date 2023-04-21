@@ -9,7 +9,7 @@ import {
 } from '../typechain-types';
 import uploadToIPFS from '../utils/uploadToIpfs';
 import deploy from '../utils/deploy';
-import { MintStatus } from '../utils/constants';
+import { FEE_DIVIDER, MintStatus } from '../utils/constants';
 import { expect } from 'chai';
 
 describe('Full Workflow', () => {
@@ -21,7 +21,7 @@ describe('Full Workflow', () => {
     knowledgeLayerID: KnowledgeLayerID,
     knowledgeLayerPlatformID: KnowledgeLayerPlatformID,
     knowledgeLayerCourse: KnowledgeLayerCourse,
-    knowledgerLayerEscrow: KnowledgeLayerEscrow;
+    knowledgeLayerEscrow: KnowledgeLayerEscrow;
 
   const aliceId = 1;
   const bobId = 2;
@@ -41,7 +41,7 @@ describe('Full Workflow', () => {
 
   before(async () => {
     [deployer, alice, bob, carol, dave] = await ethers.getSigners();
-    [knowledgeLayerID, knowledgeLayerPlatformID, knowledgeLayerCourse, knowledgerLayerEscrow] =
+    [knowledgeLayerID, knowledgeLayerPlatformID, knowledgeLayerCourse, knowledgeLayerEscrow] =
       await deploy();
 
     // Add carol to whitelist and mint platform IDs
@@ -75,11 +75,11 @@ describe('Full Workflow', () => {
     before(async () => {
       const originFee = await knowledgeLayerPlatformID.getOriginFee(carolPlatformId);
       const buyFee = await knowledgeLayerPlatformID.getBuyFee(davePlatformId);
-      const protocolFee = await knowledgerLayerEscrow.protocolFee();
-      totalPrice = coursePrice + (coursePrice * (originFee + buyFee + protocolFee)) / 10000;
+      const protocolFee = await knowledgeLayerEscrow.protocolFee();
+      totalPrice = coursePrice + (coursePrice * (originFee + buyFee + protocolFee)) / FEE_DIVIDER;
 
       // Bob buys Alice's course
-      tx = await knowledgerLayerEscrow
+      tx = await knowledgeLayerEscrow
         .connect(bob)
         .createTransaction(bobId, courseId, davePlatformId, {
           value: totalPrice,
@@ -94,7 +94,7 @@ describe('Full Workflow', () => {
 
     it("Sends Bob's money to Alice and fee to owner", async () => {
       await expect(tx).to.changeEtherBalances(
-        [bob, knowledgerLayerEscrow],
+        [bob, knowledgeLayerEscrow],
         [-totalPrice, totalPrice],
       );
     });
