@@ -1,23 +1,48 @@
 import hre, { ethers } from 'hardhat';
 import { getDeploymentProperty, ConfigProperty } from '../../.deployment/deploymentManager';
 import uploadToIPFS from '../../utils/uploadToIpfs';
+import { MintStatus } from '../../utils/constants';
 
 async function main() {
   const network = hre.network.name;
   console.log('Network:', network);
 
-  const [, alice, bob, carol] = await ethers.getSigners();
+  const [deployer, alice, bob, carol] = await ethers.getSigners();
 
   // Get contract
+  const knowledgeLayerID = await ethers.getContractAt(
+    'KnowledgeLayerID',
+    getDeploymentProperty(network, ConfigProperty.KnowledgeLayerID),
+  );
+
+  const knowledgeLayerPlatformID = await ethers.getContractAt(
+    'KnowledgeLayerPlatformID',
+    getDeploymentProperty(network, ConfigProperty.KnowledgeLayerPlatformID),
+  );
+
   const knowledgeLayerCourse = await ethers.getContractAt(
     'KnowledgeLayerCourse',
     getDeploymentProperty(network, ConfigProperty.KnowledgeLayerCourse),
   );
 
-  // Set data
+  // Whitelist Carol and mint Platform ID
+  await knowledgeLayerPlatformID.connect(deployer).whitelistUser(carol.address);
+  await knowledgeLayerPlatformID.connect(carol).mint('carol-platform');
+
+  console.log(`Minted Platform ID`);
+
+  // Disable whitelist for reserved handles and mint IDs
+  await knowledgeLayerID.connect(deployer).updateMintStatus(MintStatus.PUBLIC);
+  await knowledgeLayerID.connect(alice).mint(0, 'alice');
+  await knowledgeLayerID.connect(bob).mint(0, 'bob__');
+
+  console.log(`Minted Profile IDs`);
+
+  // Create courses
   const courses = [
     {
       user: bob,
+      platformId: 1,
       price: ethers.utils.parseEther('0.01'),
       data: {
         title: 'How to win N&W S3 and make 100K: Complete Guide',
@@ -30,6 +55,7 @@ async function main() {
     },
     {
       user: alice,
+      platformId: 1,
       price: ethers.utils.parseEther('0.08'),
       data: {
         title: 'How To Create Ebooks With Chat GPT: Beginner’s Guide',
@@ -42,8 +68,8 @@ async function main() {
     },
     {
       user: alice,
+      platformId: 1,
       price: ethers.utils.parseEther('0.027'),
-
       data: {
         title: 'Guide to become a professional meme maker',
         description:
@@ -54,7 +80,8 @@ async function main() {
       },
     },
     {
-      user: carol,
+      user: bob,
+      platformId: 1,
       price: ethers.utils.parseEther('0.03'),
       data: {
         title: 'Twitter Marketing: How to Grow an Audience on Twitter Fast',
@@ -67,6 +94,7 @@ async function main() {
     },
     {
       user: bob,
+      platformId: 1,
       price: ethers.utils.parseEther('0.05'),
       data: {
         title: 'Ethereum Smart Contract Engineer: Complete Course',
@@ -78,7 +106,8 @@ async function main() {
       },
     },
     {
-      user: carol,
+      user: bob,
+      platformId: 1,
       price: ethers.utils.parseEther('0.044'),
       data: {
         title: 'How to build work marketplaces on TalentLayer',
@@ -92,14 +121,20 @@ async function main() {
   ];
 
   for (const course of courses) {
-    const { user, price, data } = course;
+    const { user, price, data, platformId } = course;
 
     const dataUri = await uploadToIPFS(data);
     if (!dataUri) throw new Error('Failed to upload to IPFS');
 
-    const tx = await knowledgeLayerCourse.connect(user).createCourse(price, dataUri);
+    const profileId = await knowledgeLayerID.ids(user.address);
+
+    const tx = await knowledgeLayerCourse
+      .connect(user)
+      .createCourse(profileId, platformId, price, dataUri);
     await tx.wait();
   }
+
+  console.log(`Created courses`);
 }
 
 // We recommend this pattern to be able to use async/await everywhere
