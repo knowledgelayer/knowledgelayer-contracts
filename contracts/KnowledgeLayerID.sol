@@ -280,6 +280,15 @@ contract KnowledgeLayerID is Ownable, ERC721 {
     }
 
     /**
+     * @notice Get the owner of two different profile ids
+     * @param _tokenId1 The KnowledgeLayer ID of the user 1
+     * @param _tokenId2 The KnowledgeLayer ID of the user 2
+     */
+    function ownersOf(uint256 _tokenId1, uint256 _tokenId2) external view returns (address, address) {
+        return (ownerOf(_tokenId1), ownerOf(_tokenId2));
+    }
+
+    /**
      * @notice Check whether an address has reserved a handle.
      * @param _address Address to check
      * @param _handle Handle to check

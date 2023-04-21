@@ -3,10 +3,11 @@ import {
   KnowledgeLayerID,
   KnowledgeLayerPlatformID,
   KnowledgeLayerCourse,
+  KnowledgeLayerEscrow,
 } from '../typechain-types';
 
 export default async function deploy(): Promise<
-  [KnowledgeLayerID, KnowledgeLayerPlatformID, KnowledgeLayerCourse]
+  [KnowledgeLayerID, KnowledgeLayerPlatformID, KnowledgeLayerCourse, KnowledgeLayerEscrow]
 > {
   const KnowledgeLayerPlatformID = await ethers.getContractFactory('KnowledgeLayerPlatformID');
   const knowledgeLayerPlatformId = await KnowledgeLayerPlatformID.deploy();
@@ -20,5 +21,12 @@ export default async function deploy(): Promise<
   const knowledgeLayerCourse = await KnowledgeLayerCourse.deploy(knowledgeLayerId.address);
   await knowledgeLayerCourse.deployed();
 
-  return [knowledgeLayerId, knowledgeLayerPlatformId, knowledgeLayerCourse];
+  const KnowledgeLayerEscrow = await ethers.getContractFactory('KnowledgeLayerEscrow');
+  const knowledgeLayerEscrow = await KnowledgeLayerEscrow.deploy(
+    knowledgeLayerId.address,
+    knowledgeLayerCourse.address,
+  );
+  await knowledgeLayerEscrow.deployed();
+
+  return [knowledgeLayerId, knowledgeLayerPlatformId, knowledgeLayerCourse, knowledgeLayerEscrow];
 }

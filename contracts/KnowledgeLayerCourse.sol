@@ -85,6 +85,17 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
         nextCourseId.increment();
     }
 
+    // =========================== View functions ==============================
+
+    /**
+     * @notice Returns the whole course data information
+     * @param _courseId Course id
+     */
+    function getCourse(uint256 _courseId) external view returns (Course memory) {
+        require(_courseId < nextCourseId.current(), "This course doesn't exist");
+        return courses[_courseId];
+    }
+
     // =========================== User functions ==============================
 
     /**
@@ -129,21 +140,9 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
      * @dev Buys the course by paying the price
      * @param _courseId Id of the course
      */
-    function buyCourse(uint256 _courseId) public payable {
-        Course memory course = courses[_courseId];
-        require(msg.value == course.price, "Not enough ETH sent");
-
-        _mint(msg.sender, _courseId, 1, "");
-
-        uint256 fee = (protocolFee * msg.value) / FEE_DIVIDER;
-
-        (bool sentSeller, ) = payable(knowledgeLayerId.ownerOf(course.ownerId)).call{value: msg.value - fee}("");
-        require(sentSeller, "Failed to send Ether to seller");
-
-        (bool sentOwner, ) = payable(owner()).call{value: fee}("");
-        require(sentOwner, "Failed to send Ether to owner");
-
-        emit CourseBought(_courseId, msg.sender, msg.value, fee);
+    function buyCourse(uint256 _profileId, uint256 _courseId) public payable {
+        address user = knowledgeLayerId.ownerOf(_profileId);
+        _mint(user, _courseId, 1, "");
     }
 
     // =========================== Owner functions ==============================

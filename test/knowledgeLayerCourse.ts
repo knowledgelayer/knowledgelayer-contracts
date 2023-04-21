@@ -1,6 +1,6 @@
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { expect } from 'chai';
-import { BigNumber, ContractTransaction } from 'ethers';
+import { BigNumber } from 'ethers';
 import { ethers } from 'hardhat';
 import {
   KnowledgeLayerCourse,
@@ -70,31 +70,6 @@ describe('KnowledgeLayerCourse', () => {
       expect(course.platformId).to.equal(carolPlatformId);
       expect(course.price).to.equal(coursePrice);
       expect(course.dataUri).to.equal(dataUri);
-    });
-  });
-
-  describe('Buy course', async () => {
-    let tx: ContractTransaction;
-
-    before(async () => {
-      // Bob buys Alice's course
-      tx = await knowledgeLayerCourse.connect(bob).buyCourse(courseId, {
-        value: coursePrice,
-      });
-      await tx.wait();
-    });
-
-    it('Mints a course token to Bob', async () => {
-      const balance = await knowledgeLayerCourse.balanceOf(bob.address, courseId);
-      expect(balance).to.equal(1);
-    });
-
-    it("Sends Bob's money to Alice and fee to owner", async () => {
-      const fee = coursePrice * 0.05;
-      await expect(tx).to.changeEtherBalances(
-        [bob, alice, deployer],
-        [-coursePrice, coursePrice - fee, fee],
-      );
     });
   });
 
