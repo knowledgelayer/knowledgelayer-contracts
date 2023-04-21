@@ -35,6 +35,19 @@ async function main() {
 
   console.log('Deployed KnowledgeLayerCourse at', knowledgeLayerCourse.address);
   setDeploymentProperty(network, ConfigProperty.KnowledgeLayerCourse, knowledgeLayerCourse.address);
+
+  const KnowledgeLayerEscrow = await ethers.getContractFactory('KnowledgeLayerEscrow');
+  const knowledgeLayerEscrow = await KnowledgeLayerEscrow.deploy(
+    knowledgeLayerId.address,
+    knowledgeLayerCourse.address,
+  );
+  await knowledgeLayerEscrow.deployed();
+
+  console.log('Deployed KnowledgeLayerEscrow at', knowledgeLayerEscrow.address);
+  setDeploymentProperty(network, ConfigProperty.KnowledgeLayerEscrow, knowledgeLayerEscrow.address);
+
+  const escrowRole = await knowledgeLayerCourse.ESCROW_ROLE();
+  await knowledgeLayerCourse.grantRole(escrowRole, knowledgeLayerEscrow.address);
 }
 
 // We recommend this pattern to be able to use async/await everywhere

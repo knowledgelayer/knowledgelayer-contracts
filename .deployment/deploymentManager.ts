@@ -4,6 +4,7 @@ export enum ConfigProperty {
   KnowledgeLayerID,
   KnowledgeLayerPlatformID,
   KnowledgeLayerCourse,
+  KnowledgeLayerEscrow,
 }
 
 const getFilename = (network: string) => `${__dirname}/${network}.json`;
