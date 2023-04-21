@@ -19,22 +19,6 @@ contract KnowledgeLayerID is Ownable, ERC721 {
     using MerkleProof for bytes32[];
 
     /**
-     * @notice min and max length for a handle
-     */
-    uint8 constant MIN_HANDLE_LENGTH = 1;
-    uint8 constant MAX_HANDLE_LENGTH = 31;
-
-    /**
-     * @notice platform id for the protocol
-     */
-    uint8 constant PROTOCOL_ID = 0;
-
-    /**
-     * @notice Max number of characters for the handle where the dynamic priced is applied
-     */
-    uint8 constant MAX_PAID_HANDLE_CHARACTERS = 4;
-
-    /**
      * @notice Enum for the mint status
      */
     enum MintStatus {
@@ -56,6 +40,22 @@ contract KnowledgeLayerID is Ownable, ERC721 {
         uint256 platformId;
         string dataUri;
     }
+
+    /**
+     * @notice min and max length for a handle
+     */
+    uint8 constant MIN_HANDLE_LENGTH = 1;
+    uint8 constant MAX_HANDLE_LENGTH = 31;
+
+    /**
+     * @notice platform id for the protocol
+     */
+    uint8 constant PROTOCOL_ID = 0;
+
+    /**
+     * @notice Max number of characters for the handle where the dynamic priced is applied
+     */
+    uint8 constant MAX_PAID_HANDLE_CHARACTERS = 4;
 
     /**
      * @notice KnowledgeLayer Platform ID registry

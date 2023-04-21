@@ -9,14 +9,6 @@ import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 contract KnowledgeLayerPlatformID is ERC721, AccessControl {
     using Counters for Counters.Counter;
 
-    uint8 constant MIN_HANDLE_LENGTH = 5;
-    uint8 constant MAX_HANDLE_LENGTH = 31;
-
-    /**
-     * @notice Role granting Minting permission
-     */
-    bytes32 public constant MINT_ROLE = keccak256("MINT_ROLE");
-
     /**
      * @notice Enum for the mint status
      */
@@ -45,6 +37,14 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
         uint256 postingFee;
         address signer;
     }
+
+    /**
+     * @notice Role granting Minting permission
+     */
+    bytes32 public constant MINT_ROLE = keccak256("MINT_ROLE");
+
+    uint8 constant MIN_HANDLE_LENGTH = 5;
+    uint8 constant MAX_HANDLE_LENGTH = 31;
 
     /**
      * @notice Taken Platform name
