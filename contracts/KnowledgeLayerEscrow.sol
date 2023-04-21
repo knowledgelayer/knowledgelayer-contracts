@@ -12,11 +12,11 @@ contract KnowledgeLayerEscrow is Context {
 
     /**
      * @notice Transaction struct
-     * @param id Incremental identifier
+     * @param id Id of the transaction
      * @param sender The party paying the escrow amount
      * @param receiver The intended receiver of the escrow amount
      * @param amount The amount of the transaction EXCLUDING FEES
-     * @param serviceId The ID of the associated service
+     * @param courseId The ID of the associated course
      */
     struct Transaction {
         uint256 id;
@@ -40,6 +40,18 @@ contract KnowledgeLayerEscrow is Context {
 
     // KnowledgeLayerCourse contract
     IKnowledgeLayerCourse private knowledgeLayerCourse;
+
+    // =========================== Events ==============================
+
+    /**
+     * @notice Emitted when a transaction is created
+     * @param id Id of the transaction
+     * @param sender The party paying the escrow amount
+     * @param receiver The intended receiver of the escrow amount
+     * @param amount The amount of the transaction EXCLUDING FEES
+     * @param courseId The ID of the associated course
+     */
+    event TransactionCreated(uint256 id, address sender, address receiver, uint256 amount, uint256 courseId);
 
     // =========================== Constructor ==============================
 
@@ -72,6 +84,8 @@ contract KnowledgeLayerEscrow is Context {
         });
 
         knowledgeLayerCourse.buyCourse(_profileId, _courseId);
+
+        emit TransactionCreated(id, sender, receiver, course.price, _courseId);
 
         return id;
     }
