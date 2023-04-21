@@ -15,11 +15,13 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
     /**
      * @dev Course struct
      * @param ownerId KnowledgeLayer ID of the teacher
+     * @param platformId Platform ID where the course was created
      * @param price Price of the course
      * @param dataUri URI of the course data
      */
     struct Course {
         uint256 ownerId;
+        uint256 platformId;
         uint256 price;
         string dataUri;
     }
@@ -93,11 +95,12 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
      */
     function createCourse(
         uint256 _profileId,
+        uint256 _platformId,
         uint256 _price,
         string memory _dataUri
     ) public onlyOwnerOrDelegate(_profileId) {
         uint256 id = nextCourseId.current();
-        Course memory course = Course(_profileId, _price, _dataUri);
+        Course memory course = Course(_profileId, _platformId, _price, _dataUri);
         courses[id] = course;
         nextCourseId.increment();
 

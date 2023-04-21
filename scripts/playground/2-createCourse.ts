@@ -28,12 +28,15 @@ async function main() {
     videoPlaybackId: 'a915y3226a68zhp7',
   };
   const coursePrice = ethers.utils.parseEther('0.00000001');
+  const platformId = 1;
 
   const dataUri = await uploadToIPFS(courseData);
   if (!dataUri) throw new Error('Failed to upload to IPFS');
 
   const aliceId = await knowledgeLayerID.connect(alice).ids(alice.address);
-  const tx = await knowledgeLayerCourse.connect(alice).createCourse(aliceId, coursePrice, dataUri);
+  const tx = await knowledgeLayerCourse
+    .connect(alice)
+    .createCourse(aliceId, platformId, coursePrice, dataUri);
   const receipt = await tx.wait();
 
   const id = receipt.events?.find((e) => e.event === 'CourseCreated')?.args?.courseId;

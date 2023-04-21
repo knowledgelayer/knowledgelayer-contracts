@@ -2,7 +2,11 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { BigNumber, ContractTransaction } from 'ethers';
 import { ethers } from 'hardhat';
-import { KnowledgeLayerCourse, KnowledgeLayerID } from '../typechain-types';
+import {
+  KnowledgeLayerCourse,
+  KnowledgeLayerID,
+  KnowledgeLayerPlatformID,
+} from '../typechain-types';
 import uploadToIPFS from '../utils/uploadToIpfs';
 import deploy from '../utils/deploy';
 import { MintStatus } from '../utils/constants';
@@ -12,7 +16,10 @@ describe('KnowledgeLayerCourse', () => {
     alice: SignerWithAddress,
     aliceId: BigNumber,
     bob: SignerWithAddress,
+    carol: SignerWithAddress,
+    carolPlatformId: BigNumber,
     knowledgeLayerID: KnowledgeLayerID,
+    knowledgeLayerPlatformID: KnowledgeLayerPlatformID,
     knowledgeLayerCourse: KnowledgeLayerCourse;
 
   const courseData = {
@@ -28,12 +35,16 @@ describe('KnowledgeLayerCourse', () => {
   const coursePrice = 100;
 
   before(async () => {
-    [deployer, alice, bob] = await ethers.getSigners();
-    [knowledgeLayerID, , knowledgeLayerCourse] = await deploy();
+    [deployer, alice, bob, carol] = await ethers.getSigners();
+    [knowledgeLayerID, knowledgeLayerPlatformID, knowledgeLayerCourse] = await deploy();
 
-    // Disable whitelist for reserved handles
+    // Add carol to whitelist and mint platform ID
+    await knowledgeLayerPlatformID.connect(deployer).whitelistUser(carol.address);
+    await knowledgeLayerPlatformID.connect(carol).mint('carol-platform');
+    carolPlatformId = await knowledgeLayerPlatformID.connect(carol).ids(carol.address);
+
+    // Disable whitelist and mint ID
     await knowledgeLayerID.connect(deployer).updateMintStatus(MintStatus.PUBLIC);
-
     await knowledgeLayerID.connect(alice).mint(0, 'alice');
     aliceId = await knowledgeLayerID.connect(alice).ids(alice.address);
   });
@@ -49,14 +60,15 @@ describe('KnowledgeLayerCourse', () => {
       // Alice creates a course
       const tx = await knowledgeLayerCourse
         .connect(alice)
-        .createCourse(aliceId, coursePrice, dataUri);
+        .createCourse(aliceId, carolPlatformId, coursePrice, dataUri);
       await tx.wait();
     });
 
     it('Creates course with the correct data', async () => {
       const course = await knowledgeLayerCourse.courses(courseId);
-      expect(course.price).to.equal(coursePrice);
       expect(course.ownerId).to.equal(aliceId);
+      expect(course.platformId).to.equal(carolPlatformId);
+      expect(course.price).to.equal(coursePrice);
       expect(course.dataUri).to.equal(dataUri);
     });
   });
