@@ -1,3 +1,6 @@
 {
-  "knowledgeLayerCourseAddress": "0xF5a05B04b8a64D2a9c72e6Cd30e6Be58cA8A4c05"
+  "knowledgeLayerIDAddress": "0xD4b862A0d3DaFee04EDF4D4B0BD12cCb8A1AA7Af",
+  "knowledgeLayerPlatformIDAddress": "0x21180f971b8f97B6D4B2774aB8F0fEEbD4741A6b",
+  "knowledgeLayerCourseAddress": "0x9D38eB8469D4fFf7d13Ed9e64c0C8cfF73b473cD",
+  "knowledgeLayerEscrowAddress": "0xaeD0857e1771Df4D53eAB911361fc15730966EC9"
 }
