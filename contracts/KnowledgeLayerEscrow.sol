@@ -113,7 +113,9 @@ contract KnowledgeLayerEscrow is Ownable {
         IKnowledgeLayerPlatformID.Platform memory originPlatform = knowledgeLayerPlatformId.getPlatform(
             course.platformId
         );
-        IKnowledgeLayerPlatformID.Platform memory buyPlatform = knowledgeLayerPlatformId.getPlatform(_platformId);
+        IKnowledgeLayerPlatformID.Platform memory buyPlatform = course.platformId != _platformId
+            ? knowledgeLayerPlatformId.getPlatform(_platformId)
+            : originPlatform;
         uint256 totalAmount = _getAmountWithFees(course.price, originPlatform.originFee, buyPlatform.buyFee);
 
         require(msg.value == totalAmount, "Not enough ETH sent");
