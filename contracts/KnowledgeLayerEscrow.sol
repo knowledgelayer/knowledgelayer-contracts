@@ -19,6 +19,7 @@ contract KnowledgeLayerEscrow is Ownable {
      * @param id Id of the transaction
      * @param sender The party paying the escrow amount
      * @param receiver The intended receiver of the escrow amount
+     * @param token The token used for the transaction
      * @param amount The amount of the transaction EXCLUDING FEES
      * @param courseId The ID of the associated course
      * @param buyPlatformId The ID of the platform where the course is being bought
@@ -30,6 +31,7 @@ contract KnowledgeLayerEscrow is Ownable {
         uint256 id;
         address sender;
         address receiver;
+        address token;
         uint256 amount;
         uint256 courseId;
         uint256 buyPlatformId;
@@ -71,17 +73,13 @@ contract KnowledgeLayerEscrow is Ownable {
     // =========================== Events ==============================
 
     /**
-     * @notice Emitted when a transaction is created
-     * @param id Id of the transaction
-     * @param sender The party paying the escrow amount
-     * @param receiver The intended receiver of the escrow amount
-     * @param amount The amount of the transaction EXCLUDING FEES
-     * @param courseId The ID of the associated course
+     * @dev Emitted when a transaction is created
      */
     event TransactionCreated(
         uint256 id,
         address sender,
         address receiver,
+        address token,
         uint256 amount,
         uint256 courseId,
         uint16 protocolFee,
@@ -158,6 +156,7 @@ contract KnowledgeLayerEscrow is Ownable {
             id: id,
             sender: sender,
             receiver: receiver,
+            token: course.token,
             amount: course.price,
             courseId: _courseId,
             buyPlatformId: _platformId,
@@ -176,6 +175,7 @@ contract KnowledgeLayerEscrow is Ownable {
             id,
             sender,
             receiver,
+            course.token,
             course.price,
             _courseId,
             protocolFee,
@@ -194,8 +194,7 @@ contract KnowledgeLayerEscrow is Ownable {
 
         _distributeFees(_transactionId);
 
-        IKnowledgeLayerCourse.Course memory course = knowledgeLayerCourse.getCourse(transaction.courseId);
-        _transferBalance(transaction.receiver, course.token, transaction.amount);
+        _transferBalance(transaction.receiver, transaction.token, transaction.amount);
     }
 
     // =========================== Platform functions ==============================
@@ -261,9 +260,9 @@ contract KnowledgeLayerEscrow is Ownable {
         uint256 originFeeAmount = (transaction.originFee * transaction.amount) / FEE_DIVIDER;
         uint256 buyFeeAmount = (transaction.buyFee * transaction.amount) / FEE_DIVIDER;
 
-        platformBalance[PROTOCOL_INDEX][course.token] += protocolFeeAmount;
-        platformBalance[course.platformId][course.token] += originFeeAmount;
-        platformBalance[transaction.buyPlatformId][course.token] += buyFeeAmount;
+        platformBalance[PROTOCOL_INDEX][transaction.token] += protocolFeeAmount;
+        platformBalance[course.platformId][transaction.token] += originFeeAmount;
+        platformBalance[transaction.buyPlatformId][transaction.token] += buyFeeAmount;
     }
 
     /**
