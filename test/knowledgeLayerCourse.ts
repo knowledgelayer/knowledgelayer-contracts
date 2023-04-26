@@ -8,7 +8,7 @@ import {
   KnowledgeLayerPlatformID,
 } from '../typechain-types';
 import deploy from '../utils/deploy';
-import { MintStatus } from '../utils/constants';
+import { ETH_ADDRESS, MintStatus } from '../utils/constants';
 
 describe('KnowledgeLayerCourse', () => {
   let deployer: SignerWithAddress,
@@ -49,7 +49,7 @@ describe('KnowledgeLayerCourse', () => {
       // Alice creates a course
       const tx = await knowledgeLayerCourse
         .connect(alice)
-        .createCourse(aliceId, carolPlatformId, coursePrice, courseDataUri);
+        .createCourse(aliceId, carolPlatformId, coursePrice, ETH_ADDRESS, courseDataUri);
       await tx.wait();
     });
 

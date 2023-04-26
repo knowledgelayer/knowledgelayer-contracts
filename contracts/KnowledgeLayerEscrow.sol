@@ -3,6 +3,8 @@ pragma solidity ^0.8.9;
 
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {IKnowledgeLayerID} from "./interfaces/IKnowledgeLayerID.sol";
 import {IKnowledgeLayerPlatformID} from "./interfaces/IKnowledgeLayerPlatformID.sol";
@@ -10,6 +12,7 @@ import {IKnowledgeLayerCourse} from "./interfaces/IKnowledgeLayerCourse.sol";
 
 contract KnowledgeLayerEscrow is Ownable {
     using Counters for Counters.Counter;
+    using SafeERC20 for IERC20;
 
     /**
      * @notice Transaction struct
@@ -50,8 +53,8 @@ contract KnowledgeLayerEscrow is Ownable {
     // Protocol fee per sale (percentage per 10,000, upgradable)
     uint16 public protocolFee;
 
-    // Platform id to balance accumulated for fees
-    mapping(uint256 => uint256) public platformBalance;
+    // Platform id to balance accumulated for fees for each token
+    mapping(uint256 => mapping(address => uint256)) public platformBalance;
 
     // Address which will receive the protocol fees
     address payable public protocolTreasuryAddress;
@@ -142,7 +145,11 @@ contract KnowledgeLayerEscrow is Ownable {
             : originPlatform;
         uint256 totalAmount = _getAmountWithFees(course.price, originPlatform.originFee, buyPlatform.buyFee);
 
-        require(msg.value == totalAmount, "Not enough ETH sent");
+        if (course.token == address(0)) {
+            require(msg.value == totalAmount, "Non-matching funds");
+        } else {
+            require(msg.value == 0, "Non-matching funds");
+        }
 
         uint256 id = nextTransactionId.current();
 
@@ -158,6 +165,10 @@ contract KnowledgeLayerEscrow is Ownable {
             originFee: originPlatform.originFee,
             buyFee: buyPlatform.buyFee
         });
+
+        if (course.token != address(0)) {
+            IERC20(course.token).safeTransferFrom(sender, address(this), totalAmount);
+        }
 
         knowledgeLayerCourse.buyCourse(_profileId, _courseId);
 
@@ -183,16 +194,18 @@ contract KnowledgeLayerEscrow is Ownable {
 
         _distributeFees(_transactionId);
 
-        transaction.receiver.call{value: transaction.amount}("");
+        IKnowledgeLayerCourse.Course memory course = knowledgeLayerCourse.getCourse(transaction.courseId);
+        _transferBalance(transaction.receiver, course.token, transaction.amount);
     }
 
     // =========================== Platform functions ==============================
 
     /**
-     * @dev Allows a platform owner to claim its balances accumulated from fees.
+     * @dev Allows a platform owner to claim its balances accumulated from fees, for a specific token.
      * @param _platformId The ID of the platform.
+     * @param _tokenAddress The address of the token to claim.
      */
-    function claim(uint256 _platformId) external {
+    function claim(uint256 _platformId, address _tokenAddress) external {
         address payable recipient;
 
         if (owner() == _msgSender()) {
@@ -203,11 +216,11 @@ contract KnowledgeLayerEscrow is Ownable {
             recipient = payable(knowledgeLayerPlatformId.ownerOf(_platformId));
         }
 
-        uint256 amount = platformBalance[_platformId];
+        uint256 amount = platformBalance[_platformId][_tokenAddress];
         require(amount > 0, "Nothing to claim");
-        platformBalance[_platformId] = 0;
+        platformBalance[_platformId][_tokenAddress] = 0;
 
-        recipient.call{value: amount}("");
+        _transferBalance(recipient, _tokenAddress, amount);
     }
 
     // =========================== Owner functions ==============================
@@ -248,8 +261,22 @@ contract KnowledgeLayerEscrow is Ownable {
         uint256 originFeeAmount = (transaction.originFee * transaction.amount) / FEE_DIVIDER;
         uint256 buyFeeAmount = (transaction.buyFee * transaction.amount) / FEE_DIVIDER;
 
-        platformBalance[PROTOCOL_INDEX] += protocolFeeAmount;
-        platformBalance[course.platformId] += originFeeAmount;
-        platformBalance[transaction.buyPlatformId] += buyFeeAmount;
+        platformBalance[PROTOCOL_INDEX][course.token] += protocolFeeAmount;
+        platformBalance[course.platformId][course.token] += originFeeAmount;
+        platformBalance[transaction.buyPlatformId][course.token] += buyFeeAmount;
+    }
+
+    /**
+     * @notice Transfers a token or ETH balance from the escrow to a recipient's address.
+     * @param _recipient The address to transfer the balance to
+     * @param _tokenAddress The token address, or zero address for ETH
+     * @param _amount The amount to transfer
+     */
+    function _transferBalance(address _recipient, address _tokenAddress, uint256 _amount) private {
+        if (address(0) == _tokenAddress) {
+            payable(_recipient).call{value: _amount}("");
+        } else {
+            IERC20(_tokenAddress).transfer(_recipient, _amount);
+        }
     }
 }

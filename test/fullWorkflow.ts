@@ -8,7 +8,7 @@ import {
   KnowledgeLayerPlatformID,
 } from '../typechain-types';
 import deploy from '../utils/deploy';
-import { FEE_DIVIDER, MintStatus, PROTOCOL_INDEX } from '../utils/constants';
+import { ETH_ADDRESS, FEE_DIVIDER, MintStatus, PROTOCOL_INDEX } from '../utils/constants';
 import { expect } from 'chai';
 
 describe('Full Workflow', () => {
@@ -57,7 +57,7 @@ describe('Full Workflow', () => {
     // Alice creates a course
     await knowledgeLayerCourse
       .connect(alice)
-      .createCourse(aliceId, carolPlatformId, coursePrice, courseDataUri);
+      .createCourse(aliceId, carolPlatformId, coursePrice, ETH_ADDRESS, courseDataUri);
   });
 
   describe('Buy course', async () => {
@@ -112,8 +112,14 @@ describe('Full Workflow', () => {
       const originFeeAmount = (coursePrice * originFee) / FEE_DIVIDER;
       const buyFeeAmount = (coursePrice * buyFee) / FEE_DIVIDER;
 
-      const originPlatformBalance = await knowledgeLayerEscrow.platformBalance(carolPlatformId);
-      const buyPlatformBalance = await knowledgeLayerEscrow.platformBalance(davePlatformId);
+      const originPlatformBalance = await knowledgeLayerEscrow.platformBalance(
+        carolPlatformId,
+        ETH_ADDRESS,
+      );
+      const buyPlatformBalance = await knowledgeLayerEscrow.platformBalance(
+        davePlatformId,
+        ETH_ADDRESS,
+      );
 
       expect(originPlatformBalance).to.equal(originFeeAmount);
       expect(buyPlatformBalance).to.equal(buyFeeAmount);
@@ -123,7 +129,10 @@ describe('Full Workflow', () => {
       const protocolFee = await knowledgeLayerEscrow.protocolFee();
       const protocolFeeAmount = (coursePrice * protocolFee) / FEE_DIVIDER;
 
-      const protocolBalance = await knowledgeLayerEscrow.platformBalance(PROTOCOL_INDEX);
+      const protocolBalance = await knowledgeLayerEscrow.platformBalance(
+        PROTOCOL_INDEX,
+        ETH_ADDRESS,
+      );
       expect(protocolBalance).to.equal(protocolFeeAmount);
     });
   });
@@ -133,7 +142,7 @@ describe('Full Workflow', () => {
 
     before(async () => {
       // Carol claims platform fees
-      tx = await knowledgeLayerEscrow.connect(carol).claim(carolPlatformId);
+      tx = await knowledgeLayerEscrow.connect(carol).claim(carolPlatformId, ETH_ADDRESS);
       await tx.wait();
     });
 
@@ -147,7 +156,10 @@ describe('Full Workflow', () => {
     });
 
     it('Updates the platform balance', async () => {
-      const originPlatformBalance = await knowledgeLayerEscrow.platformBalance(carolPlatformId);
+      const originPlatformBalance = await knowledgeLayerEscrow.platformBalance(
+        carolPlatformId,
+        ETH_ADDRESS,
+      );
       expect(originPlatformBalance).to.equal(0);
     });
   });
@@ -157,7 +169,7 @@ describe('Full Workflow', () => {
 
     before(async () => {
       // Carol claims platform fees
-      tx = await knowledgeLayerEscrow.connect(deployer).claim(PROTOCOL_INDEX);
+      tx = await knowledgeLayerEscrow.connect(deployer).claim(PROTOCOL_INDEX, ETH_ADDRESS);
       await tx.wait();
     });
 
@@ -173,7 +185,10 @@ describe('Full Workflow', () => {
     });
 
     it('Updates the protocol balance', async () => {
-      const protocolBalance = await knowledgeLayerEscrow.platformBalance(PROTOCOL_INDEX);
+      const protocolBalance = await knowledgeLayerEscrow.platformBalance(
+        PROTOCOL_INDEX,
+        ETH_ADDRESS,
+      );
       expect(protocolBalance).to.equal(0);
     });
   });

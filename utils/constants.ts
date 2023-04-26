@@ -7,3 +7,5 @@ export enum MintStatus {
 export const FEE_DIVIDER = 10000;
 
 export const PROTOCOL_INDEX = 0;
+
+export const ETH_ADDRESS = '0x0000000000000000000000000000000000000000';

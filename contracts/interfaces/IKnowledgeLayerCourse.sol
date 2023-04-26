@@ -6,6 +6,7 @@ interface IKnowledgeLayerCourse {
         uint256 ownerId;
         uint256 platformId;
         uint256 price;
+        address token;
         string dataUri;
     }
 

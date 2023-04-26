@@ -23,6 +23,7 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
         uint256 ownerId;
         uint256 platformId;
         uint256 price;
+        address token;
         string dataUri;
     }
 
@@ -43,12 +44,14 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
     /**
      * @dev Emitted when a new course is created
      */
-    event CourseCreated(uint256 indexed courseId, address indexed seller, uint256 price, string dataUri);
-
-    /**
-     * @dev Emitted when a course is bought
-     */
-    event CourseBought(uint256 indexed courseId, address indexed buyer, uint256 price, uint256 fee);
+    event CourseCreated(
+        uint256 indexed courseId,
+        uint256 ownerId,
+        uint256 platformId,
+        uint256 price,
+        address token,
+        string dataUri
+    );
 
     /**
      * @dev Emitted when the price of a course is updated
@@ -94,20 +97,27 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
      * @dev Creates a new course
      * @param _profileId The KnowledgeLayer ID of the user owner of the service
      * @param _price Price of the course in EURe tokens
+     * @param _token Address of the token used to pay the course
      * @param _dataUri URI of the course data
      */
     function createCourse(
         uint256 _profileId,
         uint256 _platformId,
         uint256 _price,
+        address _token,
         string memory _dataUri
     ) public onlyOwnerOrDelegate(_profileId) {
         uint256 id = nextCourseId.current();
-        Course memory course = Course(_profileId, _platformId, _price, _dataUri);
-        courses[id] = course;
+        courses[id] = Course({
+            ownerId: _profileId,
+            platformId: _platformId,
+            price: _price,
+            dataUri: _dataUri,
+            token: _token
+        });
         nextCourseId.increment();
 
-        emit CourseCreated(id, msg.sender, _price, _dataUri);
+        emit CourseCreated(id, _profileId, _platformId, _price, _token, _dataUri);
     }
 
     /**
