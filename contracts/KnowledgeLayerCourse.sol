@@ -56,12 +56,7 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
     /**
      * @dev Emitted when the price of a course is updated
      */
-    event CoursePriceUpdated(uint256 indexed courseId, uint256 price);
-
-    /**
-     * @dev Emitted when the data of a course is updated
-     */
-    event CourseDataUpdated(uint256 indexed courseId, string dataUri);
+    event CourseUpdated(uint256 indexed courseId, uint256 price, address token, string dataUri);
 
     // =========================== Modifiers ==============================
 
@@ -101,7 +96,7 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
     /**
      * @dev Creates a new course
      * @param _profileId The KnowledgeLayer ID of the user owner of the course
-     * @param _price Price of the course in EURe tokens
+     * @param _price Price of the course
      * @param _token Address of the token used to pay the course
      * @param _dataUri URI of the course data
      */
@@ -126,39 +121,27 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
     }
 
     /**
-     * @dev Updates the price of a course
+     * @dev Updates a course
      * @param _profileId The KnowledgeLayer ID of the user owner of the course
      * @param _courseId Id of the course
-     * @param _price New price of the course
+     * @param _price Price of the course
+     * @param _token Address of the token used to pay the course
+     * @param _dataUri URI of the course data
      */
-    function updateCoursePrice(
+    function updateCourse(
         uint256 _profileId,
         uint256 _courseId,
-        uint256 _price
+        uint256 _price,
+        address _token,
+        string memory _dataUri
     ) public onlyOwnerOrDelegate(_profileId) {
         Course storage course = courses[_courseId];
         require(course.ownerId == _profileId, "Not the owner");
         course.price = _price;
-
-        emit CoursePriceUpdated(_courseId, _price);
-    }
-
-    /**
-     * @dev Updates the data of a course
-     * @param _profileId The KnowledgeLayer ID of the user owner of the course
-     * @param _courseId Id of the course
-     * @param _dataUri New data uri of the course
-     */
-    function updateCourseData(
-        uint256 _profileId,
-        uint256 _courseId,
-        string calldata _dataUri
-    ) public onlyOwnerOrDelegate(_profileId) {
-        Course storage course = courses[_courseId];
-        require(course.ownerId == _profileId, "Not the owner");
+        course.token = _token;
         course.dataUri = _dataUri;
 
-        emit CourseDataUpdated(_courseId, _dataUri);
+        emit CourseUpdated(_courseId, _price, _token, _dataUri);
     }
 
     // =========================== Escrow functions ==============================

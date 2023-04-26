@@ -85,46 +85,28 @@ describe('KnowledgeLayerCourse', () => {
     });
   });
 
-  describe('Update course price', async () => {
+  describe('Update course', async () => {
     const newPrice = 200;
-
-    before(async () => {
-      // Alice updates her course price
-      const tx = await knowledgeLayerCourse
-        .connect(alice)
-        .updateCoursePrice(aliceId, courseId, newPrice);
-      await tx.wait();
-    });
-
-    it('Updates the course price', async () => {
-      const price = (await knowledgeLayerCourse.courses(courseId)).price;
-      expect(price).to.equal(newPrice);
-    });
-
-    it('Only the owner can update the course price', async () => {
-      const tx = knowledgeLayerCourse.connect(bob).updateCoursePrice(bobId, courseId, newPrice);
-      await expect(tx).to.be.revertedWith('Not the owner');
-    });
-  });
-
-  describe('Update course data', async () => {
     const newDataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMg';
 
     before(async () => {
       // Alice updates her course price
       const tx = await knowledgeLayerCourse
         .connect(alice)
-        .updateCourseData(aliceId, courseId, newDataUri);
+        .updateCourse(aliceId, courseId, newPrice, ETH_ADDRESS, newDataUri);
       await tx.wait();
     });
 
-    it('Updates the course price', async () => {
-      const dataUri = (await knowledgeLayerCourse.courses(courseId)).dataUri;
-      expect(dataUri).to.equal(newDataUri);
+    it('Updates the course data', async () => {
+      const course = await knowledgeLayerCourse.courses(courseId);
+      expect(course.price).to.equal(newPrice);
+      expect(course.dataUri).to.equal(newDataUri);
     });
 
     it('Only the owner can update the course price', async () => {
-      const tx = knowledgeLayerCourse.connect(bob).updateCourseData(bobId, courseId, newDataUri);
+      const tx = knowledgeLayerCourse
+        .connect(bob)
+        .updateCourse(bobId, courseId, newPrice, ETH_ADDRESS, newDataUri);
       await expect(tx).to.be.revertedWith('Not the owner');
     });
   });
