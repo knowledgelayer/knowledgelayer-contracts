@@ -18,11 +18,15 @@ async function main() {
   await knowledgeLayerID.connect(deployer).updateMintStatus(MintStatus.PUBLIC);
 
   // Mint IDs
-  await knowledgeLayerID.connect(alice).mint(0, 'alice');
+  const tx1 = await knowledgeLayerID.connect(alice).mint(0, 'alice');
+  await tx1.wait();
+
   const aliceId = await knowledgeLayerID.ids(alice.address);
   console.log(`Minted ID ${aliceId} for Alice`);
 
-  await knowledgeLayerID.connect(bob).mint(0, 'bob__');
+  const tx2 = await knowledgeLayerID.connect(bob).mint(0, 'bob__');
+  await tx2.wait();
+
   const bobId = await knowledgeLayerID.ids(bob.address);
   console.log(`Minted ID ${bobId} for Bob`);
 }
