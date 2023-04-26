@@ -58,6 +58,11 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
      */
     event CoursePriceUpdated(uint256 indexed courseId, uint256 price);
 
+    /**
+     * @dev Emitted when the data of a course is updated
+     */
+    event CourseDataUpdated(uint256 indexed courseId, string dataUri);
+
     // =========================== Modifiers ==============================
 
     /**
@@ -95,7 +100,7 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
 
     /**
      * @dev Creates a new course
-     * @param _profileId The KnowledgeLayer ID of the user owner of the service
+     * @param _profileId The KnowledgeLayer ID of the user owner of the course
      * @param _price Price of the course in EURe tokens
      * @param _token Address of the token used to pay the course
      * @param _dataUri URI of the course data
@@ -121,8 +126,8 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
     }
 
     /**
-     * @dev Updates the price of the course
-     * @param _profileId The KnowledgeLayer ID of the user owner of the service
+     * @dev Updates the price of a course
+     * @param _profileId The KnowledgeLayer ID of the user owner of the course
      * @param _courseId Id of the course
      * @param _price New price of the course
      */
@@ -136,6 +141,24 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
         course.price = _price;
 
         emit CoursePriceUpdated(_courseId, _price);
+    }
+
+    /**
+     * @dev Updates the data of a course
+     * @param _profileId The KnowledgeLayer ID of the user owner of the course
+     * @param _courseId Id of the course
+     * @param _dataUri New data uri of the course
+     */
+    function updateCourseData(
+        uint256 _profileId,
+        uint256 _courseId,
+        string calldata _dataUri
+    ) public onlyOwnerOrDelegate(_profileId) {
+        Course storage course = courses[_courseId];
+        require(course.ownerId == _profileId, "Not the owner");
+        course.dataUri = _dataUri;
+
+        emit CourseDataUpdated(_courseId, _dataUri);
     }
 
     // =========================== Escrow functions ==============================

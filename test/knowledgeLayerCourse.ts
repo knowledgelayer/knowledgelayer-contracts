@@ -107,6 +107,28 @@ describe('KnowledgeLayerCourse', () => {
     });
   });
 
+  describe('Update course data', async () => {
+    const newDataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMg';
+
+    before(async () => {
+      // Alice updates her course price
+      const tx = await knowledgeLayerCourse
+        .connect(alice)
+        .updateCourseData(aliceId, courseId, newDataUri);
+      await tx.wait();
+    });
+
+    it('Updates the course price', async () => {
+      const dataUri = (await knowledgeLayerCourse.courses(courseId)).dataUri;
+      expect(dataUri).to.equal(newDataUri);
+    });
+
+    it('Only the owner can update the course price', async () => {
+      const tx = knowledgeLayerCourse.connect(bob).updateCourseData(bobId, courseId, newDataUri);
+      await expect(tx).to.be.revertedWith('Not the owner');
+    });
+  });
+
   describe('Token transfers', async () => {
     it("Tokens can't be transferred", async () => {
       const tx = knowledgeLayerCourse
