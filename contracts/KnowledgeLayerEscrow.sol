@@ -53,6 +53,9 @@ contract KnowledgeLayerEscrow is Ownable {
     // Platform id to balance accumulated for fees
     mapping(uint256 => uint256) public platformBalance;
 
+    // Address which will receive the protocol fees
+    address payable public protocolTreasuryAddress;
+
     // KnowledgeLayerID contract
     IKnowledgeLayerID private knowledgeLayerId;
 
@@ -107,12 +110,14 @@ contract KnowledgeLayerEscrow is Ownable {
     constructor(
         address _knowledgeLayerIdAddress,
         address _knowledgeLayerPlatformIdAddress,
-        address _knowledgeLayerCourseAddress
+        address _knowledgeLayerCourseAddress,
+        address _protocolTreasuryAddress
     ) {
         knowledgeLayerId = IKnowledgeLayerID(_knowledgeLayerIdAddress);
         knowledgeLayerPlatformId = IKnowledgeLayerPlatformID(_knowledgeLayerPlatformIdAddress);
         knowledgeLayerCourse = IKnowledgeLayerCourse(_knowledgeLayerCourseAddress);
         nextTransactionId.increment();
+        protocolTreasuryAddress = payable(_protocolTreasuryAddress);
 
         setProtocolFee(100);
     }
@@ -181,6 +186,30 @@ contract KnowledgeLayerEscrow is Ownable {
         transaction.receiver.call{value: transaction.amount}("");
     }
 
+    // =========================== Platform functions ==============================
+
+    /**
+     * @dev Allows a platform owner to claim its balances accumulated from fees.
+     * @param _platformId The ID of the platform.
+     */
+    function claim(uint256 _platformId) external {
+        address payable recipient;
+
+        if (owner() == _msgSender()) {
+            require(_platformId == PROTOCOL_INDEX, "Access denied");
+            recipient = protocolTreasuryAddress;
+        } else {
+            knowledgeLayerPlatformId.isValid(_platformId);
+            recipient = payable(knowledgeLayerPlatformId.ownerOf(_platformId));
+        }
+
+        uint256 amount = platformBalance[_platformId];
+        require(amount > 0, "Nothing to claim");
+        platformBalance[_platformId] = 0;
+
+        recipient.call{value: amount}("");
+    }
+
     // =========================== Owner functions ==============================
 
     /**
@@ -191,6 +220,14 @@ contract KnowledgeLayerEscrow is Ownable {
         protocolFee = _protocolFee;
 
         emit ProtocolFeeUpdated(_protocolFee);
+    }
+
+    /**
+     * @dev Sets the address which will receive the protocol fees
+     * @param _protocolTreasuryAddress The address
+     */
+    function setProtocolTreasuryAddress(address payable _protocolTreasuryAddress) external onlyOwner {
+        protocolTreasuryAddress = _protocolTreasuryAddress;
     }
 
     // =========================== Private functions ==============================

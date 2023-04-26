@@ -5,3 +5,5 @@ export enum MintStatus {
 }
 
 export const FEE_DIVIDER = 10000;
+
+export const PROTOCOL_INDEX = 0;

@@ -9,7 +9,7 @@ import {
 } from '../typechain-types';
 import uploadToIPFS from '../utils/uploadToIpfs';
 import deploy from '../utils/deploy';
-import { FEE_DIVIDER, MintStatus } from '../utils/constants';
+import { FEE_DIVIDER, MintStatus, PROTOCOL_INDEX } from '../utils/constants';
 import { expect } from 'chai';
 
 describe('Full Workflow', () => {
@@ -59,8 +59,8 @@ describe('Full Workflow', () => {
 
     // Disable whitelist and mint IDs
     await knowledgeLayerID.connect(deployer).updateMintStatus(MintStatus.PUBLIC);
-    await knowledgeLayerID.connect(alice).mint(0, 'alice');
-    await knowledgeLayerID.connect(bob).mint(0, 'bob__');
+    await knowledgeLayerID.connect(alice).mint(PROTOCOL_INDEX, 'alice');
+    await knowledgeLayerID.connect(bob).mint(PROTOCOL_INDEX, 'bob__');
 
     // Alice creates a course
     const uri = await uploadToIPFS(courseData);
@@ -90,7 +90,7 @@ describe('Full Workflow', () => {
       await tx.wait();
     });
 
-    it('Mints a course token to Bob', async () => {
+    it('Mints a course token to the buyer', async () => {
       const balance = await knowledgeLayerCourse.balanceOf(bob.address, courseId);
       expect(balance).to.equal(1);
     });
@@ -134,8 +134,58 @@ describe('Full Workflow', () => {
       const protocolFee = await knowledgeLayerEscrow.protocolFee();
       const protocolFeeAmount = (coursePrice * protocolFee) / FEE_DIVIDER;
 
-      const protocolBalance = await knowledgeLayerEscrow.platformBalance(0);
+      const protocolBalance = await knowledgeLayerEscrow.platformBalance(PROTOCOL_INDEX);
       expect(protocolBalance).to.equal(protocolFeeAmount);
+    });
+  });
+
+  describe('Claim platform fees', async () => {
+    let tx: ContractTransaction;
+
+    before(async () => {
+      // Carol claims platform fees
+      tx = await knowledgeLayerEscrow.connect(carol).claim(carolPlatformId);
+      await tx.wait();
+    });
+
+    it('Sends funds to the platform owner', async () => {
+      const originFeeAmount = (coursePrice * originFee) / FEE_DIVIDER;
+
+      await expect(tx).to.changeEtherBalances(
+        [carol, knowledgeLayerEscrow],
+        [originFeeAmount, -originFeeAmount],
+      );
+    });
+
+    it('Updates the platform balance', async () => {
+      const originPlatformBalance = await knowledgeLayerEscrow.platformBalance(carolPlatformId);
+      expect(originPlatformBalance).to.equal(0);
+    });
+  });
+
+  describe('Claim protocol fees', async () => {
+    let tx: ContractTransaction;
+
+    before(async () => {
+      // Carol claims platform fees
+      tx = await knowledgeLayerEscrow.connect(deployer).claim(PROTOCOL_INDEX);
+      await tx.wait();
+    });
+
+    it('Sends funds to the platform owner', async () => {
+      const protocolFee = await knowledgeLayerEscrow.protocolFee();
+      const protocolFeeAmount = (coursePrice * protocolFee) / FEE_DIVIDER;
+      const protocolTreasuryAddress = await knowledgeLayerEscrow.protocolTreasuryAddress();
+
+      await expect(tx).to.changeEtherBalances(
+        [protocolTreasuryAddress, knowledgeLayerEscrow],
+        [protocolFeeAmount, -protocolFeeAmount],
+      );
+    });
+
+    it('Updates the protocol balance', async () => {
+      const protocolBalance = await knowledgeLayerEscrow.platformBalance(PROTOCOL_INDEX);
+      expect(protocolBalance).to.equal(0);
     });
   });
 });

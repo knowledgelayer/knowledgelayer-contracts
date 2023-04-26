@@ -9,6 +9,8 @@ import {
 export default async function deploy(): Promise<
   [KnowledgeLayerID, KnowledgeLayerPlatformID, KnowledgeLayerCourse, KnowledgeLayerEscrow]
 > {
+  const [deployer] = await ethers.getSigners();
+
   const KnowledgeLayerPlatformID = await ethers.getContractFactory('KnowledgeLayerPlatformID');
   const knowledgeLayerPlatformId = await KnowledgeLayerPlatformID.deploy();
   await knowledgeLayerPlatformId.deployed();
@@ -26,6 +28,7 @@ export default async function deploy(): Promise<
     knowledgeLayerId.address,
     knowledgeLayerPlatformId.address,
     knowledgeLayerCourse.address,
+    deployer.address,
   );
   await knowledgeLayerEscrow.deployed();
 
