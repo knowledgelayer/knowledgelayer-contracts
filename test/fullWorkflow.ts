@@ -107,8 +107,8 @@ describe('Full Workflow', () => {
     let tx: ContractTransaction;
 
     before(async () => {
-      // Alices claims the funds
-      tx = await knowledgeLayerEscrow.connect(alice).claim(aliceId, transactionId);
+      // Alice claims the funds
+      tx = await knowledgeLayerEscrow.connect(alice).release(aliceId, transactionId);
       await tx.wait();
     });
 

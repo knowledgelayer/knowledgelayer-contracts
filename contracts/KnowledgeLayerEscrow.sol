@@ -170,7 +170,7 @@ contract KnowledgeLayerEscrow is Ownable {
         return id;
     }
 
-    function claim(uint256 _profileId, uint256 _transactionId) public onlyOwnerOrDelegate(_profileId) {
+    function release(uint256 _profileId, uint256 _transactionId) public onlyOwnerOrDelegate(_profileId) {
         require(_transactionId < nextTransactionId.current(), "Invalid transaction id");
         Transaction memory transaction = transactions[_transactionId];
 
