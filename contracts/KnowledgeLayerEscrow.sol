@@ -18,6 +18,7 @@ contract KnowledgeLayerEscrow is Ownable {
      * @param receiver The intended receiver of the escrow amount
      * @param amount The amount of the transaction EXCLUDING FEES
      * @param courseId The ID of the associated course
+     * @param buyPlatformId The ID of the platform where the course is being bought
      * @param protocolFee The % fee (per ten thousands) to be paid to the protocol
      * @param originFee The % fee (per ten thousands) to be paid to the platform where the course was created
      * @param buyFee The % fee (per ten thousands) to be paid to the platform where the course is being bought
@@ -28,6 +29,7 @@ contract KnowledgeLayerEscrow is Ownable {
         address receiver;
         uint256 amount;
         uint256 courseId;
+        uint256 buyPlatformId;
         uint16 protocolFee;
         uint16 originFee;
         uint16 buyFee;
@@ -35,6 +37,9 @@ contract KnowledgeLayerEscrow is Ownable {
 
     // Divider used for fees
     uint16 private constant FEE_DIVIDER = 10000;
+
+    // Index used to represent protocol where platform id is used
+    uint8 private constant PROTOCOL_INDEX = 0;
 
     // Transaction id to transaction
     mapping(uint256 => Transaction) private transactions;
@@ -44,6 +49,9 @@ contract KnowledgeLayerEscrow is Ownable {
 
     // Protocol fee per sale (percentage per 10,000, upgradable)
     uint16 public protocolFee;
+
+    // Platform id to balance accumulated for fees
+    mapping(uint256 => uint256) public platformBalance;
 
     // KnowledgeLayerID contract
     IKnowledgeLayerID private knowledgeLayerId;
@@ -79,6 +87,17 @@ contract KnowledgeLayerEscrow is Ownable {
      * @dev Emitted when the protocol fee is updated
      */
     event ProtocolFeeUpdated(uint256 fee);
+
+    // =========================== Modifiers ==============================
+
+    /**
+     * @notice Check if the given address is either the owner of the delegate of the given user
+     * @param _profileId The TalentLayer ID of the user
+     */
+    modifier onlyOwnerOrDelegate(uint256 _profileId) {
+        require(knowledgeLayerId.isOwnerOrDelegate(_profileId, _msgSender()), "Not owner or delegate");
+        _;
+    }
 
     // =========================== Constructor ==============================
 
@@ -129,6 +148,7 @@ contract KnowledgeLayerEscrow is Ownable {
             receiver: receiver,
             amount: course.price,
             courseId: _courseId,
+            buyPlatformId: _platformId,
             protocolFee: protocolFee,
             originFee: originPlatform.originFee,
             buyFee: buyPlatform.buyFee
@@ -148,6 +168,17 @@ contract KnowledgeLayerEscrow is Ownable {
         );
 
         return id;
+    }
+
+    function claim(uint256 _profileId, uint256 _transactionId) public onlyOwnerOrDelegate(_profileId) {
+        require(_transactionId < nextTransactionId.current(), "Invalid transaction id");
+        Transaction memory transaction = transactions[_transactionId];
+
+        require(transaction.receiver == knowledgeLayerId.ownerOf(_profileId), "Not the receiver");
+
+        _distributeFees(_transactionId);
+
+        transaction.receiver.call{value: transaction.amount}("");
     }
 
     // =========================== Owner functions ==============================
@@ -170,5 +201,18 @@ contract KnowledgeLayerEscrow is Ownable {
         uint16 _buyFee
     ) private view returns (uint256 totalEscrowAmount) {
         return _amount + ((_amount * (protocolFee + _originFee + _buyFee)) / FEE_DIVIDER);
+    }
+
+    function _distributeFees(uint256 _transactionId) private {
+        Transaction storage transaction = transactions[_transactionId];
+        IKnowledgeLayerCourse.Course memory course = knowledgeLayerCourse.getCourse(transaction.courseId);
+
+        uint256 protocolFeeAmount = (transaction.protocolFee * transaction.amount) / FEE_DIVIDER;
+        uint256 originFeeAmount = (transaction.originFee * transaction.amount) / FEE_DIVIDER;
+        uint256 buyFeeAmount = (transaction.buyFee * transaction.amount) / FEE_DIVIDER;
+
+        platformBalance[PROTOCOL_INDEX] += protocolFeeAmount;
+        platformBalance[course.platformId] += originFeeAmount;
+        platformBalance[transaction.buyPlatformId] += buyFeeAmount;
     }
 }
