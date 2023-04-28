@@ -10,25 +10,25 @@ It provides all the main backend components that an educational platform needs, 
 
 This is the identity of students and teachers, that aggregates their reputation and educational record across all platforms. It's represented by a soulbound NFT owned by the user wallet.
 
-Address: [0xD4b862A0d3DaFee04EDF4D4B0BD12cCb8A1AA7Af](https://mumbai.polygonscan.com/address/0xD4b862A0d3DaFee04EDF4D4B0BD12cCb8A1AA7Af)
+Address: [0x211773b801C8d9e90539DdBD3f602C667DB6efF8](https://mumbai.polygonscan.com/address/0x211773b801C8d9e90539DdBD3f602C667DB6efF8)
 
 ### KnowledgeLayerPlatformID
 
 This is the identity of a platform on KnowledgeLayer, which allows to configure fees and other settings.
 
-Address: [0x21180f971b8f97B6D4B2774aB8F0fEEbD4741A6b](https://mumbai.polygonscan.com/address/0x21180f971b8f97B6D4B2774aB8F0fEEbD4741A6b)
+Address: [0x2c08b3D32B1522B8B55523F67dee446fa9e7C743](https://mumbai.polygonscan.com/address/0x2c08b3D32B1522B8B55523F67dee446fa9e7C743)
 
 ### KnowledgeLayerCourse
 
 Allows to list a course, represented as an entry of an ERC1155, and buy courses by minting an NFT which gives access to the content.
 
-Address: [0x9D38eB8469D4fFf7d13Ed9e64c0C8cfF73b473cD](https://mumbai.polygonscan.com/address/0x9D38eB8469D4fFf7d13Ed9e64c0C8cfF73b473cD)
+Address: [0xa527eE0B0A240A2b6d474B570880ebcb09217E5b](https://mumbai.polygonscan.com/address/0xa527eE0B0A240A2b6d474B570880ebcb09217E5b)
 
 ### KnowledgeLayerEscrow
 
 Allows for secure payments between students and teachers.
 
-Address: [0xaeD0857e1771Df4D53eAB911361fc15730966EC9](https://mumbai.polygonscan.com/address/0xaeD0857e1771Df4D53eAB911361fc15730966EC9)
+Address: [0x37220E2F35e545Ac75D3372F08f409bcA4f08Be7](https://mumbai.polygonscan.com/address/0x37220E2F35e545Ac75D3372F08f409bcA4f08Be7)
 
 
 ### Coming soon

@@ -1,6 +1,6 @@
 {
-  "knowledgeLayerIDAddress": "0xD4b862A0d3DaFee04EDF4D4B0BD12cCb8A1AA7Af",
-  "knowledgeLayerPlatformIDAddress": "0x21180f971b8f97B6D4B2774aB8F0fEEbD4741A6b",
-  "knowledgeLayerCourseAddress": "0x9D38eB8469D4fFf7d13Ed9e64c0C8cfF73b473cD",
-  "knowledgeLayerEscrowAddress": "0xaeD0857e1771Df4D53eAB911361fc15730966EC9"
+  "knowledgeLayerIDAddress": "0x211773b801C8d9e90539DdBD3f602C667DB6efF8",
+  "knowledgeLayerPlatformIDAddress": "0x2c08b3D32B1522B8B55523F67dee446fa9e7C743",
+  "knowledgeLayerCourseAddress": "0xa527eE0B0A240A2b6d474B570880ebcb09217E5b",
+  "knowledgeLayerEscrowAddress": "0x37220E2F35e545Ac75D3372F08f409bcA4f08Be7"
 }
