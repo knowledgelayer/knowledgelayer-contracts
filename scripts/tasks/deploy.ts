@@ -1,5 +1,4 @@
 import { ConfigProperty, setDeploymentProperty } from '../../.deployment/deploymentManager';
-import { MintStatus } from '../../utils/constants';
 import { verifyAddress } from '../../utils/verifyAddress';
 import { task } from 'hardhat/config';
 
@@ -9,7 +8,7 @@ task('deploy', 'Deploy all contracts')
     const { verify } = args;
     console.log('Network:', network.name);
 
-    const [deployer, alice, bob, carol, dave] = await ethers.getSigners();
+    const [deployer] = await ethers.getSigners();
     console.log('Using address: ', deployer.address);
 
     const balance = await ethers.provider.getBalance(deployer.address);
@@ -33,11 +32,12 @@ task('deploy', 'Deploy all contracts')
 
     // Deploy KnowledgeLayerID
     const KnowledgeLayerID = await ethers.getContractFactory('KnowledgeLayerID');
-    const knowledgeLayerID = await KnowledgeLayerID.deploy(knowledgeLayerPlatformID.address);
+    const knowledgeLayerIDconstructorArgs: [string] = [knowledgeLayerPlatformID.address];
+    const knowledgeLayerID = await KnowledgeLayerID.deploy(...knowledgeLayerIDconstructorArgs);
     await knowledgeLayerID.deployed();
 
     if (verify) {
-      await verifyAddress(knowledgeLayerID.address, [knowledgeLayerPlatformID.address]);
+      await verifyAddress(knowledgeLayerID.address, knowledgeLayerIDconstructorArgs);
     }
 
     console.log('Deployed KnowledgeLayerID at', knowledgeLayerID.address);
@@ -45,11 +45,12 @@ task('deploy', 'Deploy all contracts')
 
     // Deploy KnowledgeLayerCourse
     const KnowledgeLayerCourse = await ethers.getContractFactory('KnowledgeLayerCourse');
-    const knowledgeLayerCourse = await KnowledgeLayerCourse.deploy(knowledgeLayerID.address);
+    const knowledgeLayerCourseArgs: [string] = [knowledgeLayerID.address];
+    const knowledgeLayerCourse = await KnowledgeLayerCourse.deploy(...knowledgeLayerCourseArgs);
     await knowledgeLayerCourse.deployed();
 
     if (verify) {
-      await verifyAddress(knowledgeLayerCourse.address, [knowledgeLayerID.address]);
+      await verifyAddress(knowledgeLayerCourse.address, knowledgeLayerCourseArgs);
     }
 
     console.log('Deployed KnowledgeLayerCourse at', knowledgeLayerCourse.address);
@@ -61,19 +62,17 @@ task('deploy', 'Deploy all contracts')
 
     // Deploy KnowledgeLayerEscrow
     const KnowledgeLayerEscrow = await ethers.getContractFactory('KnowledgeLayerEscrow');
-    const knowledgeLayerEscrow = await KnowledgeLayerEscrow.deploy(
+    const knowledgeLayerEscrowArgs: [string, string, string, string] = [
       knowledgeLayerID.address,
       knowledgeLayerPlatformID.address,
       knowledgeLayerCourse.address,
-    );
+      deployer.address,
+    ];
+    const knowledgeLayerEscrow = await KnowledgeLayerEscrow.deploy(...knowledgeLayerEscrowArgs);
     await knowledgeLayerEscrow.deployed();
 
     if (verify) {
-      await verifyAddress(knowledgeLayerEscrow.address, [
-        knowledgeLayerID.address,
-        knowledgeLayerPlatformID.address,
-        knowledgeLayerCourse.address,
-      ]);
+      await verifyAddress(knowledgeLayerEscrow.address, knowledgeLayerEscrowArgs);
     }
 
     console.log('Deployed KnowledgeLayerEscrow at', knowledgeLayerEscrow.address);
@@ -86,15 +85,4 @@ task('deploy', 'Deploy all contracts')
     // Grant esrow role to KnowledgeLayerEscrow
     const escrowRole = await knowledgeLayerCourse.ESCROW_ROLE();
     await knowledgeLayerCourse.grantRole(escrowRole, knowledgeLayerEscrow.address);
-
-    // Add carol to whitelist and mint platform IDs
-    await knowledgeLayerPlatformID.connect(deployer).whitelistUser(carol.address);
-    await knowledgeLayerPlatformID.connect(deployer).whitelistUser(dave.address);
-    await knowledgeLayerPlatformID.connect(carol).mint('carol-platform');
-    await knowledgeLayerPlatformID.connect(dave).mint('dave-platform');
-
-    // Disable whitelist and mint IDs
-    await knowledgeLayerID.connect(deployer).updateMintStatus(MintStatus.PUBLIC);
-    await knowledgeLayerID.connect(alice).mint(0, 'alice');
-    await knowledgeLayerID.connect(bob).mint(0, 'bob__');
   });
