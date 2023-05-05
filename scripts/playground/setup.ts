@@ -1,7 +1,7 @@
 import hre, { ethers } from 'hardhat';
-import { getDeploymentAddress, ContractName } from '../../.deployment/deploymentManager';
+import { getDeploymentAddress } from '../../.deployment/deploymentManager';
 import uploadToIPFS from '../../utils/uploadToIpfs';
-import { MintStatus } from '../../utils/constants';
+import { ETH_ADDRESS, MintStatus } from '../../utils/constants';
 
 async function main() {
   const network = hre.network.name;
@@ -12,17 +12,17 @@ async function main() {
   // Get contract
   const knowledgeLayerID = await ethers.getContractAt(
     'KnowledgeLayerID',
-    getDeploymentAddress(network, ContractName.KnowledgeLayerID),
+    getDeploymentAddress(network, 'KnowledgeLayerID'),
   );
 
   const knowledgeLayerPlatformID = await ethers.getContractAt(
     'KnowledgeLayerPlatformID',
-    getDeploymentAddress(network, ContractName.KnowledgeLayerPlatformID),
+    getDeploymentAddress(network, 'KnowledgeLayerPlatformID'),
   );
 
   const knowledgeLayerCourse = await ethers.getContractAt(
     'KnowledgeLayerCourse',
-    getDeploymentAddress(network, ContractName.KnowledgeLayerCourse),
+    getDeploymentAddress(network, 'KnowledgeLayerCourse'),
   );
 
   // Whitelist Carol and mint Platform ID
@@ -123,14 +123,14 @@ async function main() {
   for (const course of courses) {
     const { user, price, data, platformId } = course;
 
-    const dataUri = await uploadToIPFS(data);
+    const dataUri = await uploadToIPFS(network, data);
     if (!dataUri) throw new Error('Failed to upload to IPFS');
 
     const profileId = await knowledgeLayerID.ids(user.address);
 
     const tx = await knowledgeLayerCourse
       .connect(user)
-      .createCourse(profileId, platformId, price, dataUri);
+      .createCourse(profileId, platformId, price, ETH_ADDRESS, dataUri);
     await tx.wait();
   }
 

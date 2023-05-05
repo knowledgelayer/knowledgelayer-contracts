@@ -23,13 +23,13 @@ async function main() {
   // Upload course data to IPFS
   const courseData = {
     title: 'My cool course',
-    description:
+    about:
       'Lorem ipsum dolor sit amet consectetur adipisicing elit. Blanditiis, velit rerum reprehenderit natus omnis eligendi iure amet fugit assumenda cumque id ad qui quos alias odit iusto provident. Nostrum accusamus quae iure quod maiores!',
-    image:
-      'https://yvgbeqzuvfqmewtltglq.supabase.co/storage/v1/object/public/public/16814021907992.webp',
-    videoPlaybackId: 'a915y3226a68zhp7',
+    // description: 'Lorem ipsum dolor sit amet consectetur adipisicing elit. Blanditiis, velit rerum reprehenderit natus omnis eligendi iure amet fugit assumenda cumque id ad qui quos alias odit iusto provident. Nostrum accusamus quae iure quod maiores!',
+    // image: 'https://yvgbeqzuvfqmewtltglq.supabase.co/storage/v1/object/public/public/16814021907992.webp',
+    keywords: 'coding,web3',
   };
-  const dataUri = await uploadToIPFS(courseData);
+  const dataUri = await uploadToIPFS(network, courseData);
   if (!dataUri) throw new Error('Failed to upload to IPFS');
 
   // Create course
