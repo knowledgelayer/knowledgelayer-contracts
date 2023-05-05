@@ -1,6 +1,7 @@
 import hre, { ethers } from 'hardhat';
 import { getDeploymentProperty, ConfigProperty } from '../../.deployment/deploymentManager';
 import uploadToIPFS from '../../utils/uploadToIpfs';
+import { ETH_ADDRESS } from '../../utils/constants';
 
 async function main() {
   const network = hre.network.name;
@@ -38,7 +39,7 @@ async function main() {
 
   const tx = await knowledgeLayerCourse
     .connect(alice)
-    .createCourse(aliceId, platformId, coursePrice, dataUri);
+    .createCourse(aliceId, platformId, coursePrice, ETH_ADDRESS, dataUri);
   const receipt = await tx.wait();
 
   const id = receipt.events?.find((e) => e.event === 'CourseCreated')?.args?.courseId;
