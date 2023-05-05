@@ -1,28 +1,20 @@
-import fs from 'fs';
 import hre from 'hardhat';
 import { CONTRACT_NAMES, getDeployment } from '../../.deployment/deploymentManager';
+import { loadJSON, saveJSON } from '../../utils/files';
+
+const SUBGRAPH_FILE = `${process.env.SUBGRAPH_FOLDER}/networks.json`;
 
 async function main() {
   const network = hre.network.name;
 
   const config = getDeployment(network);
-  const subgraphNetwork = JSON.parse(loadJSON());
+  const subgraphNetwork = loadJSON(SUBGRAPH_FILE);
 
   for (const contractName of CONTRACT_NAMES) {
     subgraphNetwork[network][contractName].address = config[contractName];
   }
 
-  saveJSON(subgraphNetwork);
-}
-
-function loadJSON() {
-  const filename = `${process.env.SUBGRAPH_FOLDER}/networks.json`;
-  return fs.existsSync(filename) ? fs.readFileSync(filename).toString() : '{}';
-}
-
-function saveJSON(subgraphNetwork: string) {
-  const filename = `${process.env.SUBGRAPH_FOLDER}/networks.json`;
-  return fs.writeFileSync(filename, JSON.stringify(subgraphNetwork, null, 2));
+  saveJSON(SUBGRAPH_FILE, subgraphNetwork);
 }
 
 main().catch((error) => {
