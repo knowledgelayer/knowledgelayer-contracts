@@ -29,7 +29,7 @@ async function main() {
     // image: 'https://yvgbeqzuvfqmewtltglq.supabase.co/storage/v1/object/public/public/16814021907992.webp',
     keywords: 'coding,web3',
   };
-  const dataUri = await uploadToIPFS(network, courseData);
+  const dataUri = await uploadToIPFS(courseData);
   if (!dataUri) throw new Error('Failed to upload to IPFS');
 
   // Create course

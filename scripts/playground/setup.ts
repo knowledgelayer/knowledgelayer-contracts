@@ -123,7 +123,7 @@ async function main() {
   for (const course of courses) {
     const { user, price, data, platformId } = course;
 
-    const dataUri = await uploadToIPFS(network, data);
+    const dataUri = await uploadToIPFS(data);
     if (!dataUri) throw new Error('Failed to upload to IPFS');
 
     const profileId = await knowledgeLayerID.ids(user.address);
