@@ -23,8 +23,8 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
      * @param id the KnowledgeLayer Platform Id
      * @param name the name of the platform
      * @param dataUri the IPFS URI of the Platform metadata
-     * @param originFee the %fee (per ten thousands) asked by the platform for each course created on the platform
-     * @param buyFee the %fee (per ten thousands) asked by the platform for each purchased course on the platform
+     * @param originFee the %fee (per ten thousands) asked by the platform for sales of courses created on the platform
+     * @param buyFee the %fee (per ten thousands) asked by the platform for sales of courses purchased on the platform
      * @param postingFee the fee (flat) asked by the platform to post a course on the platform
      * @param signer address used to sign operations which need platform authorization
      */
