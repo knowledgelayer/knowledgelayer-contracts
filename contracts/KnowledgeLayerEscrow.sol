@@ -77,8 +77,8 @@ contract KnowledgeLayerEscrow is Ownable {
      */
     event TransactionCreated(
         uint256 id,
-        address sender,
-        address receiver,
+        uint256 senderId,
+        uint256 receiverId,
         address token,
         uint256 amount,
         uint256 courseId,
@@ -90,7 +90,7 @@ contract KnowledgeLayerEscrow is Ownable {
     /**
      * @dev Emitted when the protocol fee is updated
      */
-    event ProtocolFeeUpdated(uint256 fee);
+    event ProtocolFeeUpdated(uint16 fee);
 
     // =========================== Modifiers ==============================
 
@@ -173,8 +173,8 @@ contract KnowledgeLayerEscrow is Ownable {
 
         emit TransactionCreated(
             id,
-            sender,
-            receiver,
+            _profileId,
+            course.ownerId,
             course.token,
             course.price,
             _courseId,
