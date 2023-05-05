@@ -1,4 +1,4 @@
-import { ConfigProperty, setDeploymentProperty } from '../../.deployment/deploymentManager';
+import { setDeploymentAddress } from '../../.deployment/deploymentManager';
 import { verifyAddress } from '../../utils/verifyAddress';
 import { task } from 'hardhat/config';
 
@@ -24,9 +24,9 @@ task('deploy', 'Deploy all contracts')
     }
 
     console.log('Deployed KnowledgeLayerPlatformID at', knowledgeLayerPlatformID.address);
-    setDeploymentProperty(
+    setDeploymentAddress(
       network.name,
-      ConfigProperty.KnowledgeLayerPlatformID,
+      'KnowledgeLayerPlatformID',
       knowledgeLayerPlatformID.address,
     );
 
@@ -41,7 +41,7 @@ task('deploy', 'Deploy all contracts')
     }
 
     console.log('Deployed KnowledgeLayerID at', knowledgeLayerID.address);
-    setDeploymentProperty(network.name, ConfigProperty.KnowledgeLayerID, knowledgeLayerID.address);
+    setDeploymentAddress(network.name, 'KnowledgeLayerID', knowledgeLayerID.address);
 
     // Deploy KnowledgeLayerCourse
     const KnowledgeLayerCourse = await ethers.getContractFactory('KnowledgeLayerCourse');
@@ -54,11 +54,7 @@ task('deploy', 'Deploy all contracts')
     }
 
     console.log('Deployed KnowledgeLayerCourse at', knowledgeLayerCourse.address);
-    setDeploymentProperty(
-      network.name,
-      ConfigProperty.KnowledgeLayerCourse,
-      knowledgeLayerCourse.address,
-    );
+    setDeploymentAddress(network.name, 'KnowledgeLayerCourse', knowledgeLayerCourse.address);
 
     // Deploy KnowledgeLayerEscrow
     const KnowledgeLayerEscrow = await ethers.getContractFactory('KnowledgeLayerEscrow');
@@ -76,11 +72,7 @@ task('deploy', 'Deploy all contracts')
     }
 
     console.log('Deployed KnowledgeLayerEscrow at', knowledgeLayerEscrow.address);
-    setDeploymentProperty(
-      network.name,
-      ConfigProperty.KnowledgeLayerEscrow,
-      knowledgeLayerEscrow.address,
-    );
+    setDeploymentAddress(network.name, 'KnowledgeLayerEscrow', knowledgeLayerEscrow.address);
 
     // Grant esrow role to KnowledgeLayerEscrow
     const escrowRole = await knowledgeLayerCourse.ESCROW_ROLE();

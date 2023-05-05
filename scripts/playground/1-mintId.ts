@@ -1,5 +1,5 @@
 import hre, { ethers } from 'hardhat';
-import { getDeploymentProperty, ConfigProperty } from '../../.deployment/deploymentManager';
+import { getDeploymentAddress } from '../../.deployment/deploymentManager';
 import { MintStatus } from '../../utils/constants';
 
 async function main() {
@@ -11,7 +11,7 @@ async function main() {
   // Get contracts
   const knowledgeLayerID = await ethers.getContractAt(
     'KnowledgeLayerID',
-    getDeploymentProperty(network, ConfigProperty.KnowledgeLayerID),
+    getDeploymentAddress(network, 'KnowledgeLayerID'),
   );
 
   // Disable whitelist for reserved handles

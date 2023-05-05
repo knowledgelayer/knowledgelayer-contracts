@@ -1,11 +1,13 @@
 import fs from 'fs';
 
-export enum ConfigProperty {
-  KnowledgeLayerID = 'knowledgeLayerIDAddress',
-  KnowledgeLayerPlatformID = 'knowledgeLayerPlatformIDAddress',
-  KnowledgeLayerCourse = 'knowledgeLayerCourseAddress',
-  KnowledgeLayerEscrow = 'knowledgeLayerEscrowAddress',
-}
+export const CONTRACT_NAMES = [
+  'KnowledgeLayerID',
+  'KnowledgeLayerPlatformID',
+  'KnowledgeLayerCourse',
+  'KnowledgeLayerEscrow',
+] as const;
+
+export type ContractName = (typeof CONTRACT_NAMES)[number];
 
 const getFilename = (network: string) => `${__dirname}/${network}.json`;
 
@@ -19,9 +21,9 @@ const saveJSON = (network: string, json = '') => {
   return fs.writeFileSync(filename, JSON.stringify(json, null, 2));
 };
 
-export const getDeploymentProperty = (network: string, property: ConfigProperty): string => {
+export const getDeploymentAddress = (network: string, contractName: ContractName): string => {
   const obj = JSON.parse(loadJSON(network));
-  return obj[property] || 'Not found';
+  return obj[contractName] || 'Not found';
 };
 
 export const getDeployment = (network: string) => {
@@ -29,14 +31,18 @@ export const getDeployment = (network: string) => {
   return obj || 'Not found';
 };
 
-export const setDeploymentProperty = (network: string, property: ConfigProperty, value: string) => {
+export const setDeploymentAddress = (
+  network: string,
+  contractName: ContractName,
+  value: string,
+) => {
   const obj = JSON.parse(loadJSON(network) || '{}');
-  obj[property] = value;
+  obj[contractName] = value;
   saveJSON(network, obj);
 };
 
-export const removeDeploymentProperty = (network: string, property: ConfigProperty) => {
+export const removeDeploymentAddress = (network: string, contractName: ContractName) => {
   const obj = JSON.parse(loadJSON(network) || '{}');
-  delete obj[property];
+  delete obj[contractName];
   saveJSON(network, obj);
 };

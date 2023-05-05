@@ -1,5 +1,5 @@
 import hre, { ethers } from 'hardhat';
-import { getDeploymentProperty, ConfigProperty } from '../../.deployment/deploymentManager';
+import { getDeploymentAddress } from '../../.deployment/deploymentManager';
 
 async function main() {
   const network = hre.network.name;
@@ -10,7 +10,7 @@ async function main() {
   // Get contracts
   const knowledgeLayerPlatformID = await ethers.getContractAt(
     'KnowledgeLayerPlatformID',
-    getDeploymentProperty(network, ConfigProperty.KnowledgeLayerPlatformID),
+    getDeploymentAddress(network, 'KnowledgeLayerPlatformID'),
   );
 
   // Whitelist Carol

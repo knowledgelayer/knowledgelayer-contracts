@@ -1,5 +1,5 @@
 import hre, { ethers } from 'hardhat';
-import { getDeploymentProperty, ConfigProperty } from '../../.deployment/deploymentManager';
+import { getDeploymentAddress } from '../../.deployment/deploymentManager';
 import uploadToIPFS from '../../utils/uploadToIpfs';
 import { ETH_ADDRESS } from '../../utils/constants';
 
@@ -12,12 +12,12 @@ async function main() {
   // Get contracts
   const knowledgeLayerID = await ethers.getContractAt(
     'KnowledgeLayerID',
-    getDeploymentProperty(network, ConfigProperty.KnowledgeLayerID),
+    getDeploymentAddress(network, 'KnowledgeLayerID'),
   );
 
   const knowledgeLayerCourse = await ethers.getContractAt(
     'KnowledgeLayerCourse',
-    getDeploymentProperty(network, ConfigProperty.KnowledgeLayerCourse),
+    getDeploymentAddress(network, 'KnowledgeLayerCourse'),
   );
 
   // Upload course data to IPFS

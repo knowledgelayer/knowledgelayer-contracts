@@ -1,5 +1,5 @@
 import hre, { ethers } from 'hardhat';
-import { getDeploymentProperty, ConfigProperty } from '../../.deployment/deploymentManager';
+import { getDeploymentAddress, ContractName } from '../../.deployment/deploymentManager';
 import uploadToIPFS from '../../utils/uploadToIpfs';
 import { MintStatus } from '../../utils/constants';
 
@@ -12,17 +12,17 @@ async function main() {
   // Get contract
   const knowledgeLayerID = await ethers.getContractAt(
     'KnowledgeLayerID',
-    getDeploymentProperty(network, ConfigProperty.KnowledgeLayerID),
+    getDeploymentAddress(network, ContractName.KnowledgeLayerID),
   );
 
   const knowledgeLayerPlatformID = await ethers.getContractAt(
     'KnowledgeLayerPlatformID',
-    getDeploymentProperty(network, ConfigProperty.KnowledgeLayerPlatformID),
+    getDeploymentAddress(network, ContractName.KnowledgeLayerPlatformID),
   );
 
   const knowledgeLayerCourse = await ethers.getContractAt(
     'KnowledgeLayerCourse',
-    getDeploymentProperty(network, ConfigProperty.KnowledgeLayerCourse),
+    getDeploymentAddress(network, ContractName.KnowledgeLayerCourse),
   );
 
   // Whitelist Carol and mint Platform ID

@@ -1,5 +1,5 @@
 import hre, { ethers } from 'hardhat';
-import { getDeploymentProperty, ConfigProperty } from '../../.deployment/deploymentManager';
+import { getDeploymentAddress } from '../../.deployment/deploymentManager';
 import { FEE_DIVIDER } from '../../utils/constants';
 
 async function main() {
@@ -11,22 +11,22 @@ async function main() {
   // Get contract
   const knowledgeLayerID = await ethers.getContractAt(
     'KnowledgeLayerID',
-    getDeploymentProperty(network, ConfigProperty.KnowledgeLayerID),
+    getDeploymentAddress(network, 'KnowledgeLayerID'),
   );
 
   const knowledgeLayerPlatformID = await ethers.getContractAt(
     'KnowledgeLayerPlatformID',
-    getDeploymentProperty(network, ConfigProperty.KnowledgeLayerPlatformID),
+    getDeploymentAddress(network, 'KnowledgeLayerPlatformID'),
   );
 
   const knowledgeLayerCourse = await ethers.getContractAt(
     'KnowledgeLayerCourse',
-    getDeploymentProperty(network, ConfigProperty.KnowledgeLayerCourse),
+    getDeploymentAddress(network, 'KnowledgeLayerCourse'),
   );
 
   const knowledgeLayerEscrow = await ethers.getContractAt(
     'KnowledgeLayerEscrow',
-    getDeploymentProperty(network, ConfigProperty.KnowledgeLayerEscrow),
+    getDeploymentAddress(network, 'KnowledgeLayerEscrow'),
   );
 
   // Buy course

@@ -1,6 +1,6 @@
 import fs from 'fs';
 import hre from 'hardhat';
-import { getDeployment } from '../../.deployment/deploymentManager';
+import { CONTRACT_NAMES, getDeployment } from '../../.deployment/deploymentManager';
 
 async function main() {
   const network = hre.network.name;
@@ -8,11 +8,9 @@ async function main() {
   const config = getDeployment(network);
   const subgraphNetwork = JSON.parse(loadJSON());
 
-  subgraphNetwork[network].KnowledgeLayerID.address = config.knowledgeLayerIDAddress;
-  subgraphNetwork[network].KnowledgeLayerPlatformID.address =
-    config.knowledgeLayerPlatformIDAddress;
-  subgraphNetwork[network].KnowledgeLayerCourse.address = config.knowledgeLayerCourseAddress;
-  subgraphNetwork[network].KnowledgeLayerEscrow.address = config.knowledgeLayerEscrowAddress;
+  for (const contractName of CONTRACT_NAMES) {
+    subgraphNetwork[network][contractName].address = config[contractName];
+  }
 
   saveJSON(subgraphNetwork);
 }
