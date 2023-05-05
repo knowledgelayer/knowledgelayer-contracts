@@ -29,3 +29,18 @@ get-uri:
 #-------------- SETUP ----------------#
 
 setup: deploy mint-platform-id mint-id create-course buy-course
+
+#-------------- SUBGRAPH ----------------#
+
+update-graph-config: graph-copy-abis graph-copy-address
+
+ifeq ($(OS),Windows_NT)
+graph-copy-abis:
+	Get-ChildItem -Path 'artifacts\contracts\' -Recurse -Include *.json | Where-Object { $_.FullName -notmatch '\\interfaces\\' -and $_.Name -notmatch '.*\.dbg\.json' } | Copy-Item -Destination '$(SUBGRAPH_FOLDER)\abis\' -Force
+else
+graph-copy-abis:
+	find artifacts/contracts -path "artifacts/contracts/interfaces" -prune -o -name "*.json" ! -name "*.dbg.json" -exec cp {} $(SUBGRAPH_FOLDER)/abis/ \;
+endif
+
+graph-copy-address: 
+	npx hardhat run scripts/utils/setSubgraphConfig.ts --network $(NETWORK)
