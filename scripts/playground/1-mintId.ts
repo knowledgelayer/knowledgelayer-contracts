@@ -15,17 +15,18 @@ async function main() {
   );
 
   // Disable whitelist for reserved handles
-  await knowledgeLayerID.connect(deployer).updateMintStatus(MintStatus.PUBLIC);
+  const tx1 = await knowledgeLayerID.connect(deployer).updateMintStatus(MintStatus.PUBLIC);
+  await tx1.wait();
 
   // Mint IDs
-  const tx1 = await knowledgeLayerID.connect(alice).mint(0, 'alice');
-  await tx1.wait();
+  const tx2 = await knowledgeLayerID.connect(alice).mint(0, 'alice');
+  await tx2.wait();
 
   const aliceId = await knowledgeLayerID.ids(alice.address);
   console.log(`Minted ID ${aliceId} for Alice`);
 
-  const tx2 = await knowledgeLayerID.connect(bob).mint(0, 'bob__');
-  await tx2.wait();
+  const tx3 = await knowledgeLayerID.connect(bob).mint(0, 'bob__');
+  await tx3.wait();
 
   const bobId = await knowledgeLayerID.ids(bob.address);
   console.log(`Minted ID ${bobId} for Bob`);
