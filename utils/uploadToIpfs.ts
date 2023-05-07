@@ -1,18 +1,17 @@
-import hre from 'hardhat';
 import { create } from 'ipfs-http-client';
 
+const ipfsUrl = process.env.IPFS_URL;
+
 const uploadToIPFS = async (data: Record<string, unknown>) => {
-  const network = hre.network.name;
-  const url = network === 'localhost' ? 'http://localhost:5001' : 'https://ipfs.infura.io:5001';
+  const url = ipfsUrl || 'https://ipfs.infura.io:5001';
 
   try {
     const ipfs = create({
       url,
       headers: {
-        authorization:
-          network === 'localhost'
-            ? ''
-            : 'Basic ' + btoa(process.env.INFURA_ID + ':' + process.env.INFURA_SECRET),
+        authorization: ipfsUrl
+          ? ''
+          : 'Basic ' + btoa(process.env.INFURA_ID + ':' + process.env.INFURA_SECRET),
       },
     });
 
