@@ -22,23 +22,18 @@ async function main() {
 
   // Upload course data to IPFS
   const courseData = {
-    title: 'My cool course',
+    title: 'Web3 Development 101',
     about:
-      'Lorem ipsum dolor sit amet consectetur adipisicing elit. Blanditiis, velit rerum reprehenderit natus omnis eligendi iure amet fugit assumenda cumque id ad qui quos alias odit iusto provident. Nostrum accusamus quae iure quod maiores!',
+      'This course will teach you the basics of web3 development. You will learn how to build a simple smart contract and how to interact with it using a web3 provider.',
     // description: 'Lorem ipsum dolor sit amet consectetur adipisicing elit. Blanditiis, velit rerum reprehenderit natus omnis eligendi iure amet fugit assumenda cumque id ad qui quos alias odit iusto provident. Nostrum accusamus quae iure quod maiores!',
-    // image: 'https://yvgbeqzuvfqmewtltglq.supabase.co/storage/v1/object/public/public/16814021907992.webp',
-    keywords: 'coding,web3',
-    image_url: '',
+    image_url:
+      'https://yvgbeqzuvfqmewtltglq.supabase.co/storage/v1/object/public/public/smart-contract-dev-cover.png',
+    keywords: 'web3,solidity',
     lessons: [
       {
-        title: 'Lesson 1',
-        about: 'This is lesson 1',
-        videoPlaybackId: 'a403c5g06g8ovv72',
-      },
-      {
-        title: 'Lesson 2',
-        about: 'This is lesson 2',
-        videoPlaybackId: 'a403c5g06g8ovv72',
+        title: 'Lesson 1: Introduction to Smart Contracts',
+        about: 'In this lesson you will learn what a smart contract is and how it works.',
+        videoPlaybackId: '85f5y6aygrxlmhxn',
       },
     ],
   };
