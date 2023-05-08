@@ -15,6 +15,14 @@ contract KnowledgeLayerEscrow is Ownable {
     using SafeERC20 for IERC20;
 
     /**
+     * @notice Payment type
+     */
+    enum PaymentType {
+        Release,
+        Reimburse
+    }
+
+    /**
      * @notice Transaction struct
      * @param id Id of the transaction
      * @param sender The party paying the escrow amount
@@ -91,6 +99,11 @@ contract KnowledgeLayerEscrow is Ownable {
      * @dev Emitted when the protocol fee is updated
      */
     event ProtocolFeeUpdated(uint16 fee);
+
+    /**
+     * @dev Emitted when a payment is made for a transaction
+     */
+    event Payment(uint256 transactionId, PaymentType paymentType);
 
     // =========================== Modifiers ==============================
 
@@ -195,6 +208,8 @@ contract KnowledgeLayerEscrow is Ownable {
         _distributeFees(_transactionId);
 
         _transferBalance(transaction.receiver, transaction.token, transaction.amount);
+
+        emit Payment(_transactionId, PaymentType.Release);
     }
 
     // =========================== Platform functions ==============================
