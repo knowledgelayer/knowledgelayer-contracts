@@ -23,8 +23,8 @@ create-course:
 buy-course:
 	npx hardhat run scripts/playground/3-buyCourse.ts --network $(NETWORK)
 
-get-uri:
-	npx hardhat run scripts/get-uri.ts --network $(NETWORK)
+release-payment:
+	npx hardhat run scripts/playground/4-releasePayment.ts --network $(NETWORK)
 
 #-------------- SETUP ----------------#
 
