@@ -1,5 +1,8 @@
 import { HardhatUserConfig } from 'hardhat/config';
+import 'hardhat-contract-sizer';
 import '@nomicfoundation/hardhat-toolbox';
+
+import './scripts/tasks/deploy';
 
 import dotenv from 'dotenv';
 
@@ -16,7 +19,19 @@ const accounts = {
 };
 
 const config: HardhatUserConfig = {
-  solidity: '0.8.17',
+  solidity: {
+    compilers: [
+      {
+        version: '0.8.17',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
+      },
+    ],
+  },
   networks: {
     mumbai: {
       url: 'https://matic-mumbai.chainstacklabs.com',
@@ -27,6 +42,12 @@ const config: HardhatUserConfig = {
     apiKey: {
       polygonMumbai: process.env.POLYGONSCAN_API_KEY || '',
     },
+  },
+  contractSizer: {
+    alphaSort: true,
+    disambiguatePaths: false,
+    runOnCompile: true,
+    only: ['KnowledgeLayer'],
   },
 };
 
