@@ -1,11 +1,6 @@
 import { loadJSON, saveJSON } from '../utils/files';
 
-export const CONTRACT_NAMES = [
-  'KnowledgeLayerID',
-  'KnowledgeLayerPlatformID',
-  'KnowledgeLayerCourse',
-  'KnowledgeLayerEscrow',
-] as const;
+export const CONTRACT_NAMES = ['KnowledgeLayerCourse'] as const;
 
 export type ContractName = (typeof CONTRACT_NAMES)[number];
 
