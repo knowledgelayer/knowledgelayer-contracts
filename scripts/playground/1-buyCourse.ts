@@ -1,5 +1,5 @@
 import hre, { ethers } from 'hardhat';
-import { getDeploymentProperty, ConfigProperty } from '../../.deployment/deploymentManager';
+import { getDeploymentAddress } from '../../.deployment/deploymentManager';
 
 async function main() {
   const network = hre.network.name;
@@ -10,13 +10,14 @@ async function main() {
   // Get contract
   const knowledgeLayerCourse = await ethers.getContractAt(
     'KnowledgeLayerCourse',
-    getDeploymentProperty(network, ConfigProperty.KnowledgeLayerCourse),
+    getDeploymentAddress(network, 'KnowledgeLayerCourse'),
   );
 
   // Set data
   const courseId = 1;
+  const coursePrice = ethers.utils.parseEther('0.00000001');
   const tx = await knowledgeLayerCourse.connect(bob).buyCourse(courseId, {
-    value: ethers.utils.parseEther('0.00000001'),
+    value: coursePrice,
   });
   await tx.wait();
 
