@@ -1,113 +1,88 @@
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { expect } from 'chai';
-import { BigNumber } from 'ethers';
+import { ContractTransaction } from 'ethers';
 import { ethers } from 'hardhat';
-import {
-  KnowledgeLayerCourse,
-  KnowledgeLayerID,
-  KnowledgeLayerPlatformID,
-} from '../typechain-types';
-import deploy from '../utils/deploy';
-import { ETH_ADDRESS, MintStatus } from '../utils/constants';
+import { KnowledgeLayerCourse } from '../typechain-types';
 
 describe('KnowledgeLayerCourse', () => {
   let deployer: SignerWithAddress,
     alice: SignerWithAddress,
-    aliceId: BigNumber,
     bob: SignerWithAddress,
-    bobId: BigNumber,
-    carol: SignerWithAddress,
-    carolPlatformId: BigNumber,
-    knowledgeLayerID: KnowledgeLayerID,
-    knowledgeLayerPlatformID: KnowledgeLayerPlatformID,
     knowledgeLayerCourse: KnowledgeLayerCourse;
 
   const courseId = 1;
-  const coursePrice = 100;
-  const courseDataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMf';
+  const coursePrice = ethers.utils.parseEther('0.00000001');
+  const courseDataUri = 'QmcukPbbUN1YmxE5g8EnCjgkeUdV8LsKifnAo1t7iTSxdD';
 
   before(async () => {
-    [deployer, alice, bob, carol] = await ethers.getSigners();
-    [knowledgeLayerID, knowledgeLayerPlatformID, knowledgeLayerCourse] = await deploy();
+    [deployer, alice, bob] = await ethers.getSigners();
 
-    // Add carol to whitelist and mint platform ID
-    await knowledgeLayerPlatformID.connect(deployer).whitelistUser(carol.address);
-    await knowledgeLayerPlatformID.connect(carol).mint('carol-platform');
-    carolPlatformId = await knowledgeLayerPlatformID.connect(carol).ids(carol.address);
-
-    // Disable whitelist and mint IDs
-    await knowledgeLayerID.connect(deployer).updateMintStatus(MintStatus.PUBLIC);
-    await knowledgeLayerID.connect(alice).mint(0, 'alice');
-    await knowledgeLayerID.connect(bob).mint(0, 'bob__');
-
-    aliceId = await knowledgeLayerID.connect(alice).ids(alice.address);
-    bobId = await knowledgeLayerID.connect(bob).ids(bob.address);
+    const KnowledgeLayerCourse = await ethers.getContractFactory('KnowledgeLayerCourse');
+    knowledgeLayerCourse = await KnowledgeLayerCourse.deploy();
+    await knowledgeLayerCourse.deployed();
   });
 
   describe('Create course', async () => {
     before(async () => {
       // Alice creates a course
-      const tx = await knowledgeLayerCourse
-        .connect(alice)
-        .createCourse(aliceId, carolPlatformId, coursePrice, ETH_ADDRESS, courseDataUri);
+      const tx = await knowledgeLayerCourse.connect(alice).createCourse(coursePrice, courseDataUri);
       await tx.wait();
     });
 
-    it('Creates course with the correct data', async () => {
-      const course = await knowledgeLayerCourse.courses(courseId);
-      expect(course.ownerId).to.equal(aliceId);
-      expect(course.platformId).to.equal(carolPlatformId);
-      expect(course.price).to.equal(coursePrice);
-      expect(course.dataUri).to.equal(courseDataUri);
+    it('Creates product with the correct data', async () => {
+      const product = await knowledgeLayerCourse.courses(courseId);
+      expect(product.seller).to.equal(alice.address);
+      expect(product.price).to.equal(coursePrice);
+      expect(product.dataUri).to.equal(courseDataUri);
     });
   });
 
   describe('Buy course', async () => {
-    it("Fails if the caller doesn't have escrow role", async () => {
-      const escrowRole = await knowledgeLayerCourse.ESCROW_ROLE();
-      const tx = knowledgeLayerCourse.connect(bob).buyCourse(aliceId, courseId);
-      await expect(tx).to.be.revertedWith(
-        `AccessControl: account ${bob.address.toLowerCase()} is missing role ${escrowRole.toLowerCase()}`,
-      );
-    });
+    let tx: ContractTransaction;
 
-    it("Succeeds if the caller doesn't have escrow role", async () => {
-      const escrowRole = await knowledgeLayerCourse.ESCROW_ROLE();
-      await knowledgeLayerCourse.connect(deployer).grantRole(escrowRole, bob.address);
-
-      const tx = knowledgeLayerCourse.connect(bob).buyCourse(bobId, courseId);
-      await expect(tx).to.not.be.reverted;
+    before(async () => {
+      // Bob buys Alice's course
+      tx = await knowledgeLayerCourse.connect(bob).buyCourse(courseId, {
+        value: coursePrice,
+      });
+      await tx.wait();
     });
 
     it('Mints a course token to Bob', async () => {
       const balance = await knowledgeLayerCourse.balanceOf(bob.address, courseId);
       expect(balance).to.equal(1);
     });
+
+    it("Sends Bob's money to Alice and fee to owner", async () => {
+      const fee = coursePrice.div(100);
+      await expect(tx).to.changeEtherBalances(
+        [bob, alice, deployer],
+        [-coursePrice, coursePrice.sub(fee), fee],
+      );
+    });
   });
 
-  describe('Update course', async () => {
+  describe('Update product price', async () => {
     const newPrice = 200;
-    const newDataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMg';
+    const newDataUri = 'QmcukPbbUN1YmxE5g8EnCjgkeUdV8LsKifnAo1t7iTSxdE';
 
     before(async () => {
-      // Alice updates her course price
+      // Alice updates her product price
       const tx = await knowledgeLayerCourse
         .connect(alice)
-        .updateCourse(aliceId, courseId, newPrice, ETH_ADDRESS, newDataUri);
+        .updateCourse(courseId, newPrice, newDataUri);
       await tx.wait();
     });
 
-    it('Updates the course data', async () => {
+    it('Updates the product', async () => {
       const course = await knowledgeLayerCourse.courses(courseId);
       expect(course.price).to.equal(newPrice);
       expect(course.dataUri).to.equal(newDataUri);
     });
 
-    it('Only the owner can update the course price', async () => {
-      const tx = knowledgeLayerCourse
-        .connect(bob)
-        .updateCourse(bobId, courseId, newPrice, ETH_ADDRESS, newDataUri);
-      await expect(tx).to.be.revertedWith('Not the owner');
+    it('Only the owner can update the product price', async () => {
+      const tx = knowledgeLayerCourse.connect(bob).updateCourse(courseId, newPrice, newDataUri);
+      expect(tx).to.be.revertedWith('Only seller can update price');
     });
   });
 

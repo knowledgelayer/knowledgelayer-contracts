@@ -59,7 +59,7 @@ contract KnowledgeLayerCourse is ERC1155, Ownable {
     // =========================== Constructor ==============================
 
     constructor() ERC1155("") {
-        setProtocolFee(500);
+        setProtocolFee(100);
         nextCourseId.increment();
     }
 
