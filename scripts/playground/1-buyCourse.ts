@@ -5,7 +5,7 @@ async function main() {
   const network = hre.network.name;
   console.log('Network:', network);
 
-  const [bob] = await ethers.getSigners();
+  const [, , bob] = await ethers.getSigners();
 
   // Get contract
   const knowledgeLayerCourse = await ethers.getContractAt(
