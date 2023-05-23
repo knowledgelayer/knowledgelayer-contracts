@@ -107,16 +107,6 @@ contract KnowledgeLayerID is Ownable, ERC721 {
      */
     uint256 shortHandlesMaxPrice;
 
-    /**
-     * @notice Whether a KnowledgeLayer ID has done some activity in the protocol (created a service or proposal)
-     */
-    mapping(uint256 => bool) public hasActivity;
-
-    /**
-     * @notice Whether a contract is a service contract, which is able to set if a user has done some activity
-     */
-    mapping(address => bool) public isServiceContract;
-
     // =========================== Events ==============================
 
     /**
@@ -402,15 +392,6 @@ contract KnowledgeLayerID is Ownable, ERC721 {
         emit DelegateRemoved(_profileId, _delegate);
     }
 
-    /**
-     * @notice Allows to set whether a KnowledgeLayer ID has done some activity (created a service or proposal)
-     * @param _profileId The KnowledgeLayer ID of the user
-     */
-    function setHasActivity(uint256 _profileId) external {
-        require(isServiceContract[_msgSender()] == true, "Only service contracts can set whether a user has activity");
-        hasActivity[_profileId] = true;
-    }
-
     // =========================== Owner functions ==============================
 
     /**
@@ -471,15 +452,6 @@ contract KnowledgeLayerID is Ownable, ERC721 {
         emit ShortHandlesMaxPriceUpdated(_shortHandlesMaxPrice);
     }
 
-    /**
-     * @notice Updates the service contract address.
-     * @param _address The address
-     * @param _isServiceContract Whether the address is a service contract
-     */
-    function setIsServiceContract(address _address, bool _isServiceContract) external onlyOwner {
-        isServiceContract[_address] = _isServiceContract;
-    }
-
     // =========================== Private functions ==============================
 
     /**
@@ -533,17 +505,10 @@ contract KnowledgeLayerID is Ownable, ERC721 {
     // =========================== Overrides ==============================
 
     /**
-     * @notice Transfer the token from one address to another only if the NFT has no actiity linked to it.
-     * @param from address of the sender
-     * @param to address of the receiver
-     * @param tokenId id of the token to transfer
+     * @dev Override to prevent token transfer.
      */
-    function _transfer(address from, address to, uint256 tokenId) internal virtual override(ERC721) {
-        require(!hasActivity[tokenId], "Token transfer is not allowed");
-        require(balanceOf(to) == 0, "Receiver already has a KnowledgeLayer ID");
-        ids[from] = 0;
-        ids[to] = tokenId;
-        ERC721._transfer(from, to, tokenId);
+    function _transfer(address, address, uint256) internal virtual override(ERC721) {
+        revert("Token transfer is not allowed");
     }
 
     /**
