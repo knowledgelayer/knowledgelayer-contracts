@@ -5,6 +5,7 @@ export const CONTRACT_NAMES = [
   'KnowledgeLayerPlatformID',
   'KnowledgeLayerCourse',
   'KnowledgeLayerEscrow',
+  'KnowledgeLayerReview',
 ] as const;
 
 export type ContractName = (typeof CONTRACT_NAMES)[number];

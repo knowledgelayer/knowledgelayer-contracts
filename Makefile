@@ -26,9 +26,12 @@ buy-course:
 release-payment:
 	npx hardhat run scripts/playground/4-releasePayment.ts --network $(NETWORK)
 
+create-review:
+	npx hardhat run scripts/playground/5-createReview.ts --network $(NETWORK)
+
 #-------------- SETUP ----------------#
 
-setup: deploy mint-platform-id mint-id create-course buy-course
+setup: deploy mint-platform-id mint-id create-course buy-course create-review
 
 #-------------- SUBGRAPH ----------------#
 

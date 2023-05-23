@@ -77,4 +77,20 @@ task('deploy', 'Deploy all contracts')
     // Grant esrow role to KnowledgeLayerEscrow
     const escrowRole = await knowledgeLayerCourse.ESCROW_ROLE();
     await knowledgeLayerCourse.grantRole(escrowRole, knowledgeLayerEscrow.address);
+
+    // Deploy KnowledgeLayerReview
+    const KnowledgeLayerReview = await ethers.getContractFactory('KnowledgeLayerReview');
+    const knowledgeLayerReviewArgs: [string, string] = [
+      knowledgeLayerID.address,
+      knowledgeLayerCourse.address,
+    ];
+    const knowledgeLayerReview = await KnowledgeLayerReview.deploy(...knowledgeLayerReviewArgs);
+    await knowledgeLayerReview.deployed();
+
+    if (verify) {
+      await verifyAddress(knowledgeLayerReview.address, knowledgeLayerReviewArgs);
+    }
+
+    console.log('Deployed KnowledgeLayerReview at', knowledgeLayerReview.address);
+    setDeploymentAddress(network.name, 'KnowledgeLayerReview', knowledgeLayerReview.address);
   });
