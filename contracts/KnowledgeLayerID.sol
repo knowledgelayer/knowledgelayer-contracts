@@ -227,7 +227,6 @@ contract KnowledgeLayerID is Ownable, ERC721 {
 
     // =========================== Constructor ==============================
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor(address _platformIdAddress) ERC721("KnowledgeLayerID", "KLID") {
         knowledgeLayerPlatformId = IKnowledgeLayerPlatformID(_platformIdAddress);
 

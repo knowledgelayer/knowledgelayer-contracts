@@ -83,11 +83,11 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
     // =========================== View functions ==============================
 
     /**
-     * @notice Returns the whole course data information
+     * @notice Returns the course information
      * @param _courseId Course id
      */
     function getCourse(uint256 _courseId) external view returns (Course memory) {
-        require(_courseId < nextCourseId.current(), "This course doesn't exist");
+        require(_courseId < nextCourseId.current(), "Invalid course ID");
         return courses[_courseId];
     }
 
