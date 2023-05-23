@@ -6,6 +6,7 @@ import {
   KnowledgeLayerEscrow,
   KnowledgeLayerID,
   KnowledgeLayerPlatformID,
+  KnowledgeLayerReview,
 } from '../typechain-types';
 import deploy from '../utils/deploy';
 import { ETH_ADDRESS, FEE_DIVIDER, MintStatus, PROTOCOL_INDEX } from '../utils/constants';
@@ -20,7 +21,8 @@ describe('Full Workflow', () => {
     knowledgeLayerID: KnowledgeLayerID,
     knowledgeLayerPlatformID: KnowledgeLayerPlatformID,
     knowledgeLayerCourse: KnowledgeLayerCourse,
-    knowledgeLayerEscrow: KnowledgeLayerEscrow;
+    knowledgeLayerEscrow: KnowledgeLayerEscrow,
+    knowledgeLayerReview: KnowledgeLayerReview;
 
   const aliceId = 1;
   const bobId = 2;
@@ -33,11 +35,17 @@ describe('Full Workflow', () => {
   const courseId = 1;
   const coursePrice = 100;
   const courseDataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMf';
+  const reviewDataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMf';
 
   before(async () => {
     [deployer, alice, bob, carol, dave] = await ethers.getSigners();
-    [knowledgeLayerID, knowledgeLayerPlatformID, knowledgeLayerCourse, knowledgeLayerEscrow] =
-      await deploy();
+    [
+      knowledgeLayerID,
+      knowledgeLayerPlatformID,
+      knowledgeLayerCourse,
+      knowledgeLayerEscrow,
+      knowledgeLayerReview,
+    ] = await deploy();
 
     // Add carol to whitelist and mint platform IDs
     await knowledgeLayerPlatformID.connect(deployer).whitelistUser(carol.address);
@@ -190,6 +198,22 @@ describe('Full Workflow', () => {
         ETH_ADDRESS,
       );
       expect(protocolBalance).to.equal(0);
+    });
+  });
+
+  describe('Create review', async () => {
+    let tx: ContractTransaction;
+
+    before(async () => {
+      // Bob mints a review to Alice
+      const rating = 5;
+      tx = await knowledgeLayerReview.connect(bob).mint(bobId, courseId, reviewDataUri, rating);
+      await tx.wait();
+    });
+
+    it('Mints a review NFT to the seller', async () => {
+      const balance = await knowledgeLayerReview.balanceOf(alice.address);
+      expect(balance).to.equal(1);
     });
   });
 });

@@ -4,10 +4,17 @@ import {
   KnowledgeLayerPlatformID,
   KnowledgeLayerCourse,
   KnowledgeLayerEscrow,
+  KnowledgeLayerReview,
 } from '../typechain-types';
 
 export default async function deploy(): Promise<
-  [KnowledgeLayerID, KnowledgeLayerPlatformID, KnowledgeLayerCourse, KnowledgeLayerEscrow]
+  [
+    KnowledgeLayerID,
+    KnowledgeLayerPlatformID,
+    KnowledgeLayerCourse,
+    KnowledgeLayerEscrow,
+    KnowledgeLayerReview,
+  ]
 > {
   const [deployer] = await ethers.getSigners();
 
@@ -35,5 +42,18 @@ export default async function deploy(): Promise<
   const escrowRole = await knowledgeLayerCourse.ESCROW_ROLE();
   await knowledgeLayerCourse.grantRole(escrowRole, knowledgeLayerEscrow.address);
 
-  return [knowledgeLayerId, knowledgeLayerPlatformId, knowledgeLayerCourse, knowledgeLayerEscrow];
+  const KnowledgeLayerReview = await ethers.getContractFactory('KnowledgeLayerReview');
+  const knowledgeLayerReview = await KnowledgeLayerReview.deploy(
+    knowledgeLayerId.address,
+    knowledgeLayerCourse.address,
+  );
+  await knowledgeLayerReview.deployed();
+
+  return [
+    knowledgeLayerId,
+    knowledgeLayerPlatformId,
+    knowledgeLayerCourse,
+    knowledgeLayerEscrow,
+    knowledgeLayerReview,
+  ];
 }
