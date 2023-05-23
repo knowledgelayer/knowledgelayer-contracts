@@ -1,6 +1,6 @@
 export async function verifyAddress(
   address: string,
-  constructorArguments?: Array<any>,
+  constructorArguments?: unknown[],
 ): Promise<string> {
   let count = 0;
   const maxTries = 15;
@@ -10,7 +10,7 @@ export async function verifyAddress(
     try {
       console.log('Verifying contract at', address);
       // @ts-ignore
-      await run('verify:verify', {
+      run('verify:verify', {
         address: address,
         constructorArguments: constructorArguments,
       });
