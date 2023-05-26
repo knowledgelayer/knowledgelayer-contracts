@@ -14,15 +14,22 @@ async function main() {
   );
 
   // Whitelist Carol
-  await knowledgeLayerPlatformID.connect(deployer).whitelistUser(carol.address);
-  await knowledgeLayerPlatformID.connect(deployer).whitelistUser(dave.address);
+  const tx1 = await knowledgeLayerPlatformID.connect(deployer).whitelistUser(carol.address);
+  await tx1.wait();
+
+  const tx2 = await knowledgeLayerPlatformID.connect(deployer).whitelistUser(dave.address);
+  await tx2.wait();
 
   // Mint Platform IDs
-  await knowledgeLayerPlatformID.connect(carol).mint('carol-platform');
+  const tx3 = await knowledgeLayerPlatformID.connect(carol).mint('carol-platform');
+  await tx3.wait();
+
   const carolPlatformId = await knowledgeLayerPlatformID.ids(carol.address);
   console.log(`Minted Platform ID ${carolPlatformId} for Carol`);
 
-  await knowledgeLayerPlatformID.connect(dave).mint('dave-platform');
+  const tx4 = await knowledgeLayerPlatformID.connect(dave).mint('dave-platform');
+  await tx4.wait();
+
   const davePlatformId = await knowledgeLayerPlatformID.ids(dave.address);
   console.log(`Minted Platform ID ${davePlatformId} for Dave`);
 }
