@@ -105,6 +105,16 @@ contract KnowledgeLayerEscrow is Ownable {
      */
     event Payment(uint256 transactionId, PaymentType paymentType);
 
+    /**
+     * @dev Emitted when an origin fee is released to a platform's balance
+     */
+    event OriginFeeReleased(uint256 _platformId, address _token, uint256 _amount);
+
+    /**
+     * @dev Emitted when a buy fee is released to a platform's balance
+     */
+    event BuyFeeReleased(uint256 _platformId, address _token, uint256 _amount);
+
     // =========================== Modifiers ==============================
 
     /**
@@ -278,6 +288,9 @@ contract KnowledgeLayerEscrow is Ownable {
         platformBalance[PROTOCOL_INDEX][transaction.token] += protocolFeeAmount;
         platformBalance[course.platformId][transaction.token] += originFeeAmount;
         platformBalance[transaction.buyPlatformId][transaction.token] += buyFeeAmount;
+
+        emit OriginFeeReleased(course.platformId, transaction.token, originFeeAmount);
+        emit BuyFeeReleased(course.platformId, transaction.token, buyFeeAmount);
     }
 
     /**
