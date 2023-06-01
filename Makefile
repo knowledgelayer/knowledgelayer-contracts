@@ -31,7 +31,7 @@ create-review:
 
 #-------------- SETUP ----------------#
 
-setup: deploy mint-platform-id mint-id create-course buy-course create-review
+setup: deploy mint-platform-id mint-id create-course buy-course release-payment create-review
 
 #-------------- SUBGRAPH ----------------#
 
