@@ -13,12 +13,13 @@ describe('KnowledgeLayerID', () => {
     bob: SignerWithAddress,
     carol: SignerWithAddress,
     dave: SignerWithAddress,
+    frank: SignerWithAddress,
     carolPlatformId: BigNumber,
     knowledgeLayerID: KnowledgeLayerID,
     knowledgeLayerPlatformID: KnowledgeLayerPlatformID;
 
   before(async () => {
-    [deployer, alice, bob, carol, dave] = await ethers.getSigners();
+    [deployer, alice, bob, carol, dave, , frank] = await ethers.getSigners();
     [knowledgeLayerID, knowledgeLayerPlatformID] = await deploy();
 
     // Add carol to whitelist and mint platform ID
@@ -123,6 +124,46 @@ describe('KnowledgeLayerID', () => {
         await expect(tx).to.changeEtherBalances([deployer, dave], [0, 0]);
 
         expect(await knowledgeLayerID.balanceOf(dave.address)).to.be.equal(1);
+      });
+    });
+
+    describe('Handle validation', async () => {
+      it("Can't mint an handle with caps characters", async function () {
+        await expect(
+          knowledgeLayerID.connect(frank).mint(carolPlatformId, 'Frank'),
+        ).to.be.revertedWithCustomError(knowledgeLayerID, 'HandleContainsInvalidCharacters');
+      });
+
+      it("Can't mint an handle with restricted characters", async function () {
+        await expect(
+          knowledgeLayerID.connect(frank).mint(carolPlatformId, 'fr/nk'),
+        ).to.be.revertedWithCustomError(knowledgeLayerID, 'HandleContainsInvalidCharacters');
+        await expect(
+          knowledgeLayerID.connect(frank).mint(carolPlatformId, 'f***nk'),
+        ).to.be.revertedWithCustomError(knowledgeLayerID, 'HandleContainsInvalidCharacters');
+      });
+
+      it("Can't mint an handle that starts with a restricted character", async function () {
+        await expect(
+          knowledgeLayerID.connect(frank).mint(carolPlatformId, '-frank'),
+        ).to.be.revertedWithCustomError(knowledgeLayerID, 'HandleFirstCharInvalid');
+        await expect(
+          knowledgeLayerID.connect(frank).mint(carolPlatformId, '_frank'),
+        ).to.be.revertedWithCustomError(knowledgeLayerID, 'HandleFirstCharInvalid');
+      });
+
+      it("Can't mint an handle with length < 5 characters", async function () {
+        await expect(
+          knowledgeLayerID.connect(frank).mint(carolPlatformId, ''),
+        ).to.be.revertedWithCustomError(knowledgeLayerID, 'HandleLengthInvalid');
+      });
+
+      it("Can't mint an handle with length > 31 characters", async function () {
+        const tooLongHandle = 'frank123456789qsitorhenchdyahe12';
+        expect(tooLongHandle.length).to.be.greaterThan(31);
+        await expect(
+          knowledgeLayerID.connect(frank).mint(carolPlatformId, tooLongHandle),
+        ).to.be.revertedWithCustomError(knowledgeLayerID, 'HandleLengthInvalid');
       });
     });
   });
