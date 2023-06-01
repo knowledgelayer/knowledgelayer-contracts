@@ -5,6 +5,7 @@ import {
   KnowledgeLayerCourse,
   KnowledgeLayerEscrow,
   KnowledgeLayerReview,
+  KnowledgeLayerArbitrator,
 } from '../typechain-types';
 
 export default async function deploy(): Promise<
@@ -14,16 +15,17 @@ export default async function deploy(): Promise<
     KnowledgeLayerCourse,
     KnowledgeLayerEscrow,
     KnowledgeLayerReview,
+    KnowledgeLayerArbitrator,
   ]
 > {
   const [deployer] = await ethers.getSigners();
 
   const KnowledgeLayerPlatformID = await ethers.getContractFactory('KnowledgeLayerPlatformID');
-  const knowledgeLayerPlatformId = await KnowledgeLayerPlatformID.deploy();
-  await knowledgeLayerPlatformId.deployed();
+  const knowledgeLayerPlatformID = await KnowledgeLayerPlatformID.deploy();
+  await knowledgeLayerPlatformID.deployed();
 
   const KnowledgeLayerID = await ethers.getContractFactory('KnowledgeLayerID');
-  const knowledgeLayerId = await KnowledgeLayerID.deploy(knowledgeLayerPlatformId.address);
+  const knowledgeLayerId = await KnowledgeLayerID.deploy(knowledgeLayerPlatformID.address);
   await knowledgeLayerId.deployed();
 
   const KnowledgeLayerCourse = await ethers.getContractFactory('KnowledgeLayerCourse');
@@ -33,7 +35,7 @@ export default async function deploy(): Promise<
   const KnowledgeLayerEscrow = await ethers.getContractFactory('KnowledgeLayerEscrow');
   const knowledgeLayerEscrow = await KnowledgeLayerEscrow.deploy(
     knowledgeLayerId.address,
-    knowledgeLayerPlatformId.address,
+    knowledgeLayerPlatformID.address,
     knowledgeLayerCourse.address,
     deployer.address,
   );
@@ -49,11 +51,18 @@ export default async function deploy(): Promise<
   );
   await knowledgeLayerReview.deployed();
 
+  const KnowledgeLayerArbitrator = await ethers.getContractFactory('KnowledgeLayerArbitrator');
+  const knowledgeLayerArbitrator = await KnowledgeLayerArbitrator.deploy(
+    knowledgeLayerPlatformID.address,
+  );
+  await knowledgeLayerArbitrator.deployed();
+
   return [
     knowledgeLayerId,
-    knowledgeLayerPlatformId,
+    knowledgeLayerPlatformID,
     knowledgeLayerCourse,
     knowledgeLayerEscrow,
     knowledgeLayerReview,
+    knowledgeLayerArbitrator,
   ];
 }

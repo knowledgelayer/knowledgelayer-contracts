@@ -131,6 +131,9 @@ contract KnowledgeLayerEscrow is Ownable {
 
     /**
      * @param _knowledgeLayerIdAddress Address of the KnowledgeLayerID contract
+     * @param _knowledgeLayerPlatformIdAddress Address of the KnowledgeLayerPlatformID contract
+     * @param _knowledgeLayerCourseAddress Address of the KnowledgeLayerCourse contract
+     * @param _protocolTreasuryAddress Address which will receive the protocol fees
      */
     constructor(
         address _knowledgeLayerIdAddress,

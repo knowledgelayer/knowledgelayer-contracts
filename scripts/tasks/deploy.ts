@@ -93,4 +93,23 @@ task('deploy', 'Deploy all contracts')
 
     console.log('Deployed KnowledgeLayerReview at', knowledgeLayerReview.address);
     setDeploymentAddress(network.name, 'KnowledgeLayerReview', knowledgeLayerReview.address);
+
+    // Deploy KnowledgeLayerArbitrator
+    const KnowledgeLayerArbitrator = await ethers.getContractFactory('KnowledgeLayerArbitrator');
+    const knowledgeLayerArbitratorArgs: [string] = [knowledgeLayerPlatformID.address];
+    const knowledgeLayerArbitrator = await KnowledgeLayerArbitrator.deploy(
+      ...knowledgeLayerArbitratorArgs,
+    );
+    await knowledgeLayerArbitrator.deployed();
+
+    if (verify) {
+      await verifyAddress(knowledgeLayerArbitrator.address, knowledgeLayerArbitratorArgs);
+    }
+
+    console.log('Deployed KnowledgeLayerArbitrator at', knowledgeLayerArbitrator.address);
+    setDeploymentAddress(
+      network.name,
+      'KnowledgeLayerArbitrator',
+      knowledgeLayerArbitrator.address,
+    );
   });
