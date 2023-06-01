@@ -113,6 +113,17 @@ describe('KnowledgeLayerID', () => {
       await knowledgeLayerID
         .connect(alice)
         .mintForAddress(carol.address, carolPlatformId, 'carol', { value: mintFee });
+
+      expect(await knowledgeLayerID.balanceOf(carol.address)).to.be.equal(1);
+    });
+
+    describe('Free mint', async () => {
+      it('Deployer can mint an ID for free to an address', async () => {
+        const tx = await knowledgeLayerID.freeMint(carolPlatformId, dave.address, 'dave');
+        await expect(tx).to.changeEtherBalances([deployer, dave], [0, 0]);
+
+        expect(await knowledgeLayerID.balanceOf(dave.address)).to.be.equal(1);
+      });
     });
   });
 
