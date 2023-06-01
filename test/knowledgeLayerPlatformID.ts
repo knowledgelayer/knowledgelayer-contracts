@@ -88,7 +88,7 @@ describe('KnowledgeLayerPlatformID', () => {
         expect(await knowledgeLayerPlatformID.ids(bob.address)).to.be.equal(platformId);
 
         // Check that the token was minted correctly
-        expect(tx).to.changeTokenBalance(knowledgeLayerPlatformID, bob, 1);
+        await expect(tx).to.changeTokenBalance(knowledgeLayerPlatformID, bob, 1);
         expect(await knowledgeLayerPlatformID.ownerOf(platformId)).to.be.equal(bob.address);
 
         // Check that the profile name was saved correctly
@@ -102,6 +102,53 @@ describe('KnowledgeLayerPlatformID', () => {
         // Check that the token URI was saved correctly
         const tokenURI = await knowledgeLayerPlatformID.tokenURI(platformId);
         expect(tokenURI).to.be.not.null;
+      });
+    });
+
+    describe('Mint fee', async () => {
+      it('The deployer can update the mint fee', async function () {
+        await knowledgeLayerPlatformID.connect(deployer).updateMintFee(mintFee);
+        const updatedMintFee = await knowledgeLayerPlatformID.mintFee();
+
+        expect(updatedMintFee).to.be.equal(mintFee);
+      });
+
+      it("Can't mint an ID without paying the fee", async () => {
+        const tx = knowledgeLayerPlatformID.connect(carol).mint('carol-platform');
+        await expect(tx).to.be.revertedWith('Incorrect amount of ETH for mint fee');
+      });
+
+      it('Can mint an ID paying the fee', async () => {
+        const tx = await knowledgeLayerPlatformID.connect(carol).mint('carol-platform', {
+          value: mintFee,
+        });
+        await expect(tx).to.changeTokenBalance(knowledgeLayerPlatformID, carol, 1);
+      });
+    });
+
+    describe('Mint for address', async () => {
+      it("Can't mint for an address if don't have the mint role", async () => {
+        const mintRole = await knowledgeLayerPlatformID.MINT_ROLE();
+        await expect(
+          knowledgeLayerPlatformID.connect(alice).mintForAddress('dave-platform', dave.address, {
+            value: mintFee,
+          }),
+        ).to.be.revertedWith(
+          `AccessControl: account ${alice.address.toLowerCase()} is missing role ${mintRole.toLowerCase()}`,
+        );
+      });
+
+      it('Can mint for an address if have the mint role', async () => {
+        // Grant mint role to alice
+        const mintRole = await knowledgeLayerPlatformID.MINT_ROLE();
+        await knowledgeLayerPlatformID.connect(deployer).grantRole(mintRole, alice.address);
+
+        const tx = await knowledgeLayerPlatformID
+          .connect(alice)
+          .mintForAddress('dave-platform', dave.address, {
+            value: mintFee,
+          });
+        await expect(tx).to.changeTokenBalance(knowledgeLayerPlatformID, dave, 1);
       });
     });
   });

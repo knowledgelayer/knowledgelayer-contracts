@@ -65,7 +65,7 @@ describe('KnowledgeLayerID', () => {
         expect(await knowledgeLayerID.ids(alice.address)).to.be.equal(profileId);
 
         // Check that the token was minted correctly
-        expect(tx).to.changeTokenBalance(knowledgeLayerID, alice, 1);
+        await expect(tx).to.changeTokenBalance(knowledgeLayerID, alice, 1);
         expect(await knowledgeLayerID.ownerOf(profileId)).to.be.equal(alice.address);
 
         // Check that the profile data was saved correctly
@@ -91,7 +91,7 @@ describe('KnowledgeLayerID', () => {
         expect(updatedMintFee).to.be.equal(mintFee);
       });
 
-      it("Can't mint an ID when the fee is not paid", async () => {
+      it("Can't mint an ID without paying the fee", async () => {
         const tx = knowledgeLayerID.connect(bob).mint(carolPlatformId, 'bob__');
         await expect(tx).to.be.revertedWith('Incorrect amount of ETH for mint fee');
       });
@@ -100,11 +100,11 @@ describe('KnowledgeLayerID', () => {
         const tx = await knowledgeLayerID.connect(bob).mint(carolPlatformId, 'bob__', {
           value: mintFee,
         });
-        expect(tx).to.changeTokenBalance(knowledgeLayerID, bob, 1);
+        await expect(tx).to.changeTokenBalance(knowledgeLayerID, bob, 1);
       });
     });
 
-    describe('Mint profile for address', async () => {
+    describe('Mint for address', async () => {
       // Mint fails if not enough ETH is sent
       await expect(
         knowledgeLayerID.connect(alice).mintForAddress(carol.address, carolPlatformId, 'carol'),
@@ -115,14 +115,14 @@ describe('KnowledgeLayerID', () => {
         .connect(alice)
         .mintForAddress(carol.address, carolPlatformId, 'carol', { value: mintFee });
 
-      expect(tx).to.changeTokenBalance(knowledgeLayerID, carol, 1);
+      await expect(tx).to.changeTokenBalance(knowledgeLayerID, carol, 1);
     });
 
     describe('Free mint', async () => {
       it('Deployer can mint an ID for free to an address', async () => {
         const tx = await knowledgeLayerID.freeMint(carolPlatformId, dave.address, 'dave');
         await expect(tx).to.changeEtherBalances([deployer, dave], [0, 0]);
-        expect(tx).to.changeTokenBalance(knowledgeLayerID, dave, 1);
+        await expect(tx).to.changeTokenBalance(knowledgeLayerID, dave, 1);
       });
     });
 
