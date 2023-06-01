@@ -9,12 +9,11 @@ import { MintStatus } from '../utils/constants';
 describe('KnowledgeLayerPlatformID', () => {
   let deployer: SignerWithAddress,
     alice: SignerWithAddress,
-    aliceId: BigNumber,
     bob: SignerWithAddress,
     carol: SignerWithAddress,
     dave: SignerWithAddress,
     frank: SignerWithAddress,
-    carolPlatformId: BigNumber,
+    alicePlatformId: BigNumber,
     knowledgeLayerPlatformID: KnowledgeLayerPlatformID;
 
   before(async () => {
@@ -62,34 +61,21 @@ describe('KnowledgeLayerPlatformID', () => {
       });
 
       it('Can mint an ID if whitelisted', async () => {
-        await knowledgeLayerPlatformID.connect(alice).mint('alice-platform');
-        expect(await knowledgeLayerPlatformID.balanceOf(alice.address)).to.be.equal(1);
-      });
-    });
-
-    describe('Public minting', async () => {
-      it('The deployer can make minting public', async function () {
-        await knowledgeLayerPlatformID.connect(deployer).updateMintStatus(MintStatus.PUBLIC);
-        const mintStatus = await knowledgeLayerPlatformID.connect(deployer).mintStatus();
-
-        expect(mintStatus).to.be.equal(MintStatus.PUBLIC);
-      });
-
-      it('Mint an ID', async () => {
-        const platformName = 'bob-platform';
+        const platformName = 'alice-platform';
         const totalSupplyBefore = await knowledgeLayerPlatformID.totalSupply();
 
-        const tx = await knowledgeLayerPlatformID.connect(bob).mint(platformName);
+        const tx = await knowledgeLayerPlatformID.connect(alice).mint(platformName);
         const receipt = await tx.wait();
 
         // Check that the ID was set correctly
         const platformId: BigNumber = receipt.events?.find((e) => e.event === 'Mint')?.args
           ?.platformId;
-        expect(await knowledgeLayerPlatformID.ids(bob.address)).to.be.equal(platformId);
+        alicePlatformId = platformId;
+        expect(await knowledgeLayerPlatformID.ids(alice.address)).to.be.equal(platformId);
 
         // Check that the token was minted correctly
-        await expect(tx).to.changeTokenBalance(knowledgeLayerPlatformID, bob, 1);
-        expect(await knowledgeLayerPlatformID.ownerOf(platformId)).to.be.equal(bob.address);
+        await expect(tx).to.changeTokenBalance(knowledgeLayerPlatformID, alice, 1);
+        expect(await knowledgeLayerPlatformID.ownerOf(platformId)).to.be.equal(alice.address);
 
         // Check that the profile name was saved correctly
         const platformData = await knowledgeLayerPlatformID.platforms(platformId);
@@ -102,6 +88,20 @@ describe('KnowledgeLayerPlatformID', () => {
         // Check that the token URI was saved correctly
         const tokenURI = await knowledgeLayerPlatformID.tokenURI(platformId);
         expect(tokenURI).to.be.not.null;
+      });
+    });
+
+    describe('Public minting', async () => {
+      it('The deployer can make minting public', async function () {
+        await knowledgeLayerPlatformID.connect(deployer).updateMintStatus(MintStatus.PUBLIC);
+        const mintStatus = await knowledgeLayerPlatformID.connect(deployer).mintStatus();
+
+        expect(mintStatus).to.be.equal(MintStatus.PUBLIC);
+      });
+
+      it('Mint an ID', async () => {
+        const tx = await knowledgeLayerPlatformID.connect(bob).mint('bob-platform');
+        await expect(tx).to.changeTokenBalance(knowledgeLayerPlatformID, bob, 1);
       });
     });
 
@@ -212,6 +212,20 @@ describe('KnowledgeLayerPlatformID', () => {
         const tx = knowledgeLayerPlatformID.connect(alice).mint('alice2', { value: mintFee });
         await expect(tx).to.be.revertedWith('Platform already has a Platform ID');
       });
+    });
+  });
+
+  describe('Update platform profile', async () => {
+    it('Updates the profile data', async () => {
+      const newDataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMg';
+
+      const tx = await knowledgeLayerPlatformID
+        .connect(alice)
+        .updateProfileData(alicePlatformId, newDataUri);
+      await tx.wait();
+
+      const platformData = await knowledgeLayerPlatformID.platforms(alicePlatformId);
+      expect(platformData.dataUri).to.equal(newDataUri);
     });
   });
 });
