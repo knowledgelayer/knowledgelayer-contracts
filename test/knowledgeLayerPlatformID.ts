@@ -319,18 +319,21 @@ describe('KnowledgeLayerPlatformID', () => {
   });
 
   describe('Withdraw', async () => {
-    const contractBalance = await ethers.provider.getBalance(knowledgeLayerPlatformID.address);
+    it('Deployer can withdraw contract balance', async () => {
+      const contractBalance = await ethers.provider.getBalance(knowledgeLayerPlatformID.address);
+      const adminRole = await knowledgeLayerPlatformID.DEFAULT_ADMIN_ROLE();
 
-    // Withdraw fails if the caller is not the owner
-    await expect(knowledgeLayerPlatformID.connect(alice).withdraw()).to.be.revertedWith(
-      'Ownable: caller is not the owner',
-    );
+      // Withdraw fails if the caller is not the owner
+      await expect(knowledgeLayerPlatformID.connect(alice).withdraw()).to.be.revertedWith(
+        `AccessControl: account ${alice.address.toLowerCase()} is missing role ${adminRole.toLowerCase()}`,
+      );
 
-    // Withdraw is successful if the caller is the owner
-    const tx = await knowledgeLayerPlatformID.connect(deployer).withdraw();
-    await expect(tx).to.changeEtherBalances(
-      [deployer, knowledgeLayerPlatformID],
-      [contractBalance, -contractBalance],
-    );
+      // Withdraw is successful if the caller is the owner
+      const tx = await knowledgeLayerPlatformID.connect(deployer).withdraw();
+      await expect(tx).to.changeEtherBalances(
+        [deployer, knowledgeLayerPlatformID],
+        [contractBalance, -contractBalance],
+      );
+    });
   });
 });
