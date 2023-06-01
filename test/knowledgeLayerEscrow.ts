@@ -3,15 +3,16 @@ import { expect } from 'chai';
 import { BigNumber, ContractTransaction, Wallet } from 'ethers';
 import { ethers } from 'hardhat';
 import {
+  ERC20,
   KnowledgeLayerCourse,
   KnowledgeLayerEscrow,
   KnowledgeLayerID,
   KnowledgeLayerPlatformID,
 } from '../typechain-types';
 import deploy from '../utils/deploy';
-import { ETH_ADDRESS, FEE_DIVIDER, MintStatus, PROTOCOL_INDEX } from '../utils/constants';
+import { FEE_DIVIDER, MintStatus, PROTOCOL_INDEX, ETH_ADDRESS } from '../utils/constants';
 
-describe('KnowledgeLayerCourse', () => {
+const escrowTests = (isEth: boolean) => {
   let deployer: SignerWithAddress,
     alice: SignerWithAddress,
     bob: SignerWithAddress,
@@ -21,8 +22,10 @@ describe('KnowledgeLayerCourse', () => {
     knowledgeLayerPlatformID: KnowledgeLayerPlatformID,
     knowledgeLayerCourse: KnowledgeLayerCourse,
     knowledgeLayerEscrow: KnowledgeLayerEscrow,
+    simpleERC20: ERC20,
     courseTotalPrice: BigNumber,
-    protocolFee: number;
+    protocolFee: number,
+    tokenAddress: string;
 
   const aliceId = 1;
   const bobId = 2;
@@ -39,6 +42,16 @@ describe('KnowledgeLayerCourse', () => {
     [deployer, alice, bob, carol, dave] = await ethers.getSigners();
     [knowledgeLayerID, knowledgeLayerPlatformID, knowledgeLayerCourse, knowledgeLayerEscrow] =
       await deploy();
+
+    if (!isEth) {
+      // Deploy SimpleERC20
+      const SimpleERC20 = await ethers.getContractFactory('SimpleERC20');
+      simpleERC20 = await SimpleERC20.deploy();
+      simpleERC20.deployed();
+      tokenAddress = simpleERC20.address;
+    } else {
+      tokenAddress = ETH_ADDRESS;
+    }
 
     // Add carol to whitelist and mint platform ID
     await knowledgeLayerPlatformID.connect(deployer).whitelistUser(carol.address);
@@ -59,7 +72,7 @@ describe('KnowledgeLayerCourse', () => {
     // Alice creates a course
     await knowledgeLayerCourse
       .connect(alice)
-      .createCourse(aliceId, originPlatformId, coursePrice, ETH_ADDRESS, courseDataUri);
+      .createCourse(aliceId, originPlatformId, coursePrice, tokenAddress, courseDataUri);
 
     protocolFee = await knowledgeLayerEscrow.protocolFee();
     courseTotalPrice = coursePrice.add(
@@ -71,28 +84,46 @@ describe('KnowledgeLayerCourse', () => {
     it("Can't buy course if not profile owner", async () => {
       await expect(
         knowledgeLayerEscrow.connect(carol).createTransaction(bobId, courseId, buyPlatformId, {
-          value: courseTotalPrice,
+          value: isEth ? courseTotalPrice : 0,
         }),
       ).to.be.revertedWith('Not the owner');
     });
 
     it("Can't buy course if not paying enough", async () => {
-      await expect(
-        knowledgeLayerEscrow.connect(bob).createTransaction(bobId, courseId, buyPlatformId, {
-          value: courseTotalPrice.sub(1),
-        }),
-      ).to.be.revertedWith('Non-matching funds');
+      if (isEth) {
+        await expect(
+          knowledgeLayerEscrow.connect(bob).createTransaction(bobId, courseId, buyPlatformId, {
+            value: courseTotalPrice.sub(1),
+          }),
+        ).to.be.revertedWith('Non-matching funds');
+      } else {
+        // Create transaction without approving tokens
+        await expect(
+          knowledgeLayerEscrow.connect(bob).createTransaction(bobId, courseId, buyPlatformId, {
+            value: 0,
+          }),
+        ).to.be.revertedWith('ERC20: insufficient allowance');
+      }
     });
 
     describe('Buy course paying the price', async () => {
       let tx: ContractTransaction;
 
       before(async () => {
+        if (!isEth) {
+          // Send tokens to Bob
+          const balance = await simpleERC20.balanceOf(deployer.address);
+          simpleERC20.connect(deployer).transfer(bob.address, balance);
+
+          // Approve tokens to escrow
+          await simpleERC20.connect(bob).approve(knowledgeLayerEscrow.address, courseTotalPrice);
+        }
+
         // Bob buys Alice's course
         tx = await knowledgeLayerEscrow
           .connect(bob)
           .createTransaction(bobId, courseId, buyPlatformId, {
-            value: courseTotalPrice,
+            value: isEth ? courseTotalPrice : 0,
           });
       });
 
@@ -100,7 +131,7 @@ describe('KnowledgeLayerCourse', () => {
         const transaction = await knowledgeLayerEscrow.connect(alice).getTransaction(transactionId);
         expect(transaction.sender).to.equal(bob.address);
         expect(transaction.receiver).to.equal(alice.address);
-        expect(transaction.token).to.equal(ETH_ADDRESS);
+        expect(transaction.token).to.equal(tokenAddress);
         expect(transaction.amount).to.equal(coursePrice);
         expect(transaction.courseId).to.equal(courseId);
         expect(transaction.buyPlatformId).to.equal(buyPlatformId);
@@ -115,10 +146,18 @@ describe('KnowledgeLayerCourse', () => {
       });
 
       it('Sends funds to escrow', async () => {
-        await expect(tx).to.changeEtherBalances(
-          [bob, knowledgeLayerEscrow],
-          [courseTotalPrice.mul(-1), courseTotalPrice],
-        );
+        if (isEth) {
+          await expect(tx).to.changeEtherBalances(
+            [bob, knowledgeLayerEscrow],
+            [courseTotalPrice.mul(-1), courseTotalPrice],
+          );
+        } else {
+          await expect(tx).to.changeTokenBalances(
+            simpleERC20,
+            [bob, knowledgeLayerEscrow],
+            [courseTotalPrice.mul(-1), courseTotalPrice],
+          );
+        }
       });
     });
   });
@@ -161,10 +200,18 @@ describe('KnowledgeLayerCourse', () => {
       });
 
       it('Sends funds to Alice', async () => {
-        await expect(tx).to.changeEtherBalances(
-          [knowledgeLayerEscrow, alice],
-          [coursePrice.mul(-1), coursePrice],
-        );
+        if (isEth) {
+          await expect(tx).to.changeEtherBalances(
+            [knowledgeLayerEscrow, alice],
+            [coursePrice.mul(-1), coursePrice],
+          );
+        } else {
+          await expect(tx).to.changeTokenBalances(
+            simpleERC20,
+            [knowledgeLayerEscrow, alice],
+            [coursePrice.mul(-1), coursePrice],
+          );
+        }
       });
 
       it('Updates platforms fees balance', async () => {
@@ -173,11 +220,11 @@ describe('KnowledgeLayerCourse', () => {
 
         const originPlatformBalance = await knowledgeLayerEscrow.platformBalance(
           originPlatformId,
-          ETH_ADDRESS,
+          tokenAddress,
         );
         const buyPlatformBalance = await knowledgeLayerEscrow.platformBalance(
           buyPlatformId,
-          ETH_ADDRESS,
+          tokenAddress,
         );
 
         expect(originPlatformBalance).to.equal(originFeeAmount);
@@ -188,7 +235,7 @@ describe('KnowledgeLayerCourse', () => {
         const protocolFeeAmount = coursePrice.mul(protocolFee).div(FEE_DIVIDER);
         const protocolBalance = await knowledgeLayerEscrow.platformBalance(
           PROTOCOL_INDEX,
-          ETH_ADDRESS,
+          tokenAddress,
         );
         expect(protocolBalance).to.equal(protocolFeeAmount);
       });
@@ -198,7 +245,7 @@ describe('KnowledgeLayerCourse', () => {
   describe('Claim platform fees', async () => {
     it("Owner can't claim platform fees", async () => {
       await expect(
-        knowledgeLayerEscrow.connect(deployer).claim(originPlatformId, ETH_ADDRESS),
+        knowledgeLayerEscrow.connect(deployer).claim(originPlatformId, tokenAddress),
       ).to.be.revertedWith('Access denied');
     });
 
@@ -209,25 +256,33 @@ describe('KnowledgeLayerCourse', () => {
       before(async () => {
         originPlatformBalance = await knowledgeLayerEscrow.platformBalance(
           originPlatformId,
-          ETH_ADDRESS,
+          tokenAddress,
         );
 
         // Carol claims platform fees
-        tx = await knowledgeLayerEscrow.connect(carol).claim(originPlatformId, ETH_ADDRESS);
+        tx = await knowledgeLayerEscrow.connect(carol).claim(originPlatformId, tokenAddress);
         await tx.wait();
       });
 
       it('Sends funds to the platform owner', async () => {
-        await expect(tx).to.changeEtherBalances(
-          [carol, knowledgeLayerEscrow],
-          [originPlatformBalance, originPlatformBalance.mul(-1)],
-        );
+        if (isEth) {
+          await expect(tx).to.changeEtherBalances(
+            [carol, knowledgeLayerEscrow],
+            [originPlatformBalance, originPlatformBalance.mul(-1)],
+          );
+        } else {
+          await expect(tx).to.changeTokenBalances(
+            simpleERC20,
+            [carol, knowledgeLayerEscrow],
+            [originPlatformBalance, originPlatformBalance.mul(-1)],
+          );
+        }
       });
 
       it('Updates the platform balance', async () => {
         const originPlatformBalance = await knowledgeLayerEscrow.platformBalance(
           originPlatformId,
-          ETH_ADDRESS,
+          tokenAddress,
         );
         expect(originPlatformBalance).to.equal(0);
       });
@@ -239,26 +294,34 @@ describe('KnowledgeLayerCourse', () => {
     let protocolBalance: BigNumber;
 
     before(async () => {
-      protocolBalance = await knowledgeLayerEscrow.platformBalance(PROTOCOL_INDEX, ETH_ADDRESS);
+      protocolBalance = await knowledgeLayerEscrow.platformBalance(PROTOCOL_INDEX, tokenAddress);
 
       // Owner claims protocol fees
-      tx = await knowledgeLayerEscrow.connect(deployer).claim(PROTOCOL_INDEX, ETH_ADDRESS);
+      tx = await knowledgeLayerEscrow.connect(deployer).claim(PROTOCOL_INDEX, tokenAddress);
       await tx.wait();
     });
 
     it('Sends funds to the platform owner', async () => {
       const protocolTreasuryAddress = await knowledgeLayerEscrow.protocolTreasuryAddress();
 
-      await expect(tx).to.changeEtherBalances(
-        [protocolTreasuryAddress, knowledgeLayerEscrow],
-        [protocolBalance, protocolBalance.mul(-1)],
-      );
+      if (isEth) {
+        await expect(tx).to.changeEtherBalances(
+          [protocolTreasuryAddress, knowledgeLayerEscrow],
+          [protocolBalance, protocolBalance.mul(-1)],
+        );
+      } else {
+        await expect(tx).to.changeTokenBalances(
+          simpleERC20,
+          [protocolTreasuryAddress, knowledgeLayerEscrow],
+          [protocolBalance, protocolBalance.mul(-1)],
+        );
+      }
     });
 
     it('Updates the protocol balance', async () => {
       const protocolBalance = await knowledgeLayerEscrow.platformBalance(
         PROTOCOL_INDEX,
-        ETH_ADDRESS,
+        tokenAddress,
       );
       expect(protocolBalance).to.equal(0);
     });
@@ -297,4 +360,10 @@ describe('KnowledgeLayerCourse', () => {
       expect(protocolTreasuryAddress).to.equal(newProtocolTreasuryAddress);
     });
   });
+};
+
+describe('KnowledgeLayerEscrow', () => {
+  describe('ETH', () => escrowTests(true));
+
+  describe('ERC20', () => escrowTests(false));
 });
