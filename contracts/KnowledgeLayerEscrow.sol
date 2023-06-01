@@ -90,6 +90,7 @@ contract KnowledgeLayerEscrow is Ownable {
         address token,
         uint256 amount,
         uint256 courseId,
+        uint256 buyPlatformId,
         uint16 protocolFee,
         uint16 originFee,
         uint16 buyFee
@@ -201,6 +202,7 @@ contract KnowledgeLayerEscrow is Ownable {
             course.token,
             course.price,
             _courseId,
+            _platformId,
             protocolFee,
             originPlatform.originFee,
             buyPlatform.buyFee
