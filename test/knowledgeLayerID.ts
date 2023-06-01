@@ -239,4 +239,20 @@ describe('KnowledgeLayerID', () => {
       ).to.be.revertedWith('Token transfer is not allowed');
     });
   });
+
+  describe('Withdraw', async () => {
+    const contractBalance = await ethers.provider.getBalance(knowledgeLayerID.address);
+
+    // Withdraw fails if the caller is not the owner
+    await expect(knowledgeLayerID.connect(alice).withdraw()).to.be.revertedWith(
+      'Ownable: caller is not the owner',
+    );
+
+    // Withdraw is successful if the caller is the owner
+    const tx = await knowledgeLayerID.connect(deployer).withdraw();
+    await expect(tx).to.changeEtherBalances(
+      [deployer, knowledgeLayerID],
+      [contractBalance, -contractBalance],
+    );
+  });
 });
