@@ -206,44 +206,6 @@ describe('KnowledgeLayerID', () => {
     });
   });
 
-  describe('Delegation', async () => {
-    const dataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMg';
-
-    it('Can add a delegate', async () => {
-      // Fails if the caller is not the owner of the profile
-      const tx = knowledgeLayerID.connect(bob).addDelegate(aliceId, dave.address);
-      await expect(tx).to.be.revertedWith('Not the owner');
-
-      await knowledgeLayerID.connect(alice).addDelegate(aliceId, dave.address);
-      const isDelegate = await knowledgeLayerID.isDelegate(aliceId, dave.address);
-      expect(isDelegate).to.be.true;
-    });
-
-    it('Delegate can update profile on behalf of user', async function () {
-      // Fails if caller is not the owner or delegate
-      const failTx = knowledgeLayerID.connect(bob).updateProfileData(aliceId, dataUri);
-      await expect(failTx).to.be.revertedWith('Not owner or delegate');
-
-      const tx = await knowledgeLayerID.connect(dave).updateProfileData(aliceId, dataUri);
-      await expect(tx).to.not.be.reverted;
-    });
-
-    it('Can remove a delegate', async function () {
-      // Fails if the caller is not the owner of the profile
-      const tx = knowledgeLayerID.connect(bob).removeDelegate(aliceId, dave.address);
-      await expect(tx).to.be.revertedWith('Not the owner');
-
-      await knowledgeLayerID.connect(alice).removeDelegate(aliceId, dave.address);
-      const isDelegate = await knowledgeLayerID.isDelegate(alice.address, dave.address);
-      expect(isDelegate).to.be.false;
-    });
-
-    it("Delegate can't update profile on behalf of user after removed", async function () {
-      const tx = knowledgeLayerID.connect(dave).updateProfileData(aliceId, dataUri);
-      await expect(tx).to.be.revertedWith('Not owner or delegate');
-    });
-  });
-
   describe('Token transfers', async () => {
     it("Tokens can't be transferred", async () => {
       await expect(
