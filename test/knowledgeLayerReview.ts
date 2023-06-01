@@ -84,7 +84,7 @@ describe('KnowledgeLayerReview', () => {
       ).to.be.revertedWith('Invalid rating');
     });
 
-    describe('Buyer can mint a review', async () => {
+    describe('Buyer can create a review', async () => {
       let tx: ContractTransaction;
       let reviewId: BigNumber;
 
@@ -117,6 +117,17 @@ describe('KnowledgeLayerReview', () => {
         // Check that the token URI was saved correctly
         const tokenURI = await knowledgeLayerReview.tokenURI(reviewId);
         expect(tokenURI).to.be.not.null;
+      });
+
+      it('Marks that the buyer has reviewed the course', async () => {
+        const hasReviewed = await knowledgeLayerReview.hasBeenReviewed(courseId, bobId);
+        expect(hasReviewed).to.be.true;
+      });
+
+      it("Can't create a review if already created", async () => {
+        await expect(
+          knowledgeLayerReview.connect(bob).mint(bobId, courseId, reviewDataUri, 5),
+        ).to.be.revertedWith('Already minted review');
       });
     });
   });
