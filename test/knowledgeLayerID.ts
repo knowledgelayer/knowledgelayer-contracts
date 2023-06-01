@@ -32,7 +32,7 @@ describe('KnowledgeLayerID', () => {
     const mintFee = 100;
 
     describe('Minting paused', async () => {
-      it('The deployer can pause the minting', async () => {
+      it('The owner can pause the minting', async () => {
         await knowledgeLayerID.connect(deployer).updateMintStatus(MintStatus.ON_PAUSE);
         const mintStatus = await knowledgeLayerID.connect(deployer).mintStatus();
 
@@ -46,7 +46,7 @@ describe('KnowledgeLayerID', () => {
     });
 
     describe('Public minting', async () => {
-      it('The deployer can make minting public', async function () {
+      it('The owner can make minting public', async function () {
         await knowledgeLayerID.connect(deployer).updateMintStatus(MintStatus.PUBLIC);
         const mintStatus = await knowledgeLayerID.connect(deployer).mintStatus();
 
@@ -84,7 +84,7 @@ describe('KnowledgeLayerID', () => {
     });
 
     describe('Mint fee', async () => {
-      it('The deployer can update the mint fee', async function () {
+      it('The owner can update the mint fee', async function () {
         await knowledgeLayerID.connect(deployer).updateMintFee(mintFee);
         const updatedMintFee = await knowledgeLayerID.mintFee();
 
@@ -119,7 +119,7 @@ describe('KnowledgeLayerID', () => {
     });
 
     describe('Free mint', async () => {
-      it('Deployer can mint an ID for free to an address', async () => {
+      it('The owner can mint an ID for free to an address', async () => {
         const tx = await knowledgeLayerID.freeMint(carolPlatformId, dave.address, 'dave');
         await expect(tx).to.changeEtherBalances([deployer, dave], [0, 0]);
         await expect(tx).to.changeTokenBalance(knowledgeLayerID, dave, 1);
@@ -253,7 +253,7 @@ describe('KnowledgeLayerID', () => {
   });
 
   describe('Withdraw', async () => {
-    it('Deployer can withdraw contract balance', async () => {
+    it('The owner can withdraw contract balance', async () => {
       const contractBalance = await ethers.provider.getBalance(knowledgeLayerID.address);
 
       // Withdraw fails if the caller is not the owner

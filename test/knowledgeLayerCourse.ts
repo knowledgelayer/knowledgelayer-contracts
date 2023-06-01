@@ -103,7 +103,7 @@ describe('KnowledgeLayerCourse', () => {
       expect(course.dataUri).to.equal(newDataUri);
     });
 
-    it('Only the owner can update the course price', async () => {
+    it('Only the course owner can update the course price', async () => {
       const tx = knowledgeLayerCourse
         .connect(bob)
         .updateCourse(bobId, courseId, newPrice, ETH_ADDRESS, newDataUri);

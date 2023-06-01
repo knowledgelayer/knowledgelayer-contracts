@@ -25,7 +25,7 @@ describe('KnowledgeLayerPlatformID', () => {
     const mintFee = 100;
 
     describe('Minting paused', async () => {
-      it('The deployer can pause the minting', async () => {
+      it('The owner can pause the minting', async () => {
         await knowledgeLayerPlatformID.connect(deployer).updateMintStatus(MintStatus.ON_PAUSE);
         const mintStatus = await knowledgeLayerPlatformID.connect(deployer).mintStatus();
 
@@ -39,7 +39,7 @@ describe('KnowledgeLayerPlatformID', () => {
     });
 
     describe('Minting with whitelist', async () => {
-      it('The deployer can make minting only whistelited', async () => {
+      it('The owner can make minting only whistelited', async () => {
         await knowledgeLayerPlatformID
           .connect(deployer)
           .updateMintStatus(MintStatus.ONLY_WHITELIST);
@@ -53,7 +53,7 @@ describe('KnowledgeLayerPlatformID', () => {
         await expect(tx).to.be.revertedWith('You are not whitelisted');
       });
 
-      it('The deployer can whitelist an address', async () => {
+      it('The owner can whitelist an address', async () => {
         await knowledgeLayerPlatformID.connect(deployer).whitelistUser(alice.address);
 
         const isWhitelisted = await knowledgeLayerPlatformID.whitelist(alice.address);
@@ -92,7 +92,7 @@ describe('KnowledgeLayerPlatformID', () => {
     });
 
     describe('Public minting', async () => {
-      it('The deployer can make minting public', async function () {
+      it('The owner can make minting public', async function () {
         await knowledgeLayerPlatformID.connect(deployer).updateMintStatus(MintStatus.PUBLIC);
         const mintStatus = await knowledgeLayerPlatformID.connect(deployer).mintStatus();
 
@@ -106,7 +106,7 @@ describe('KnowledgeLayerPlatformID', () => {
     });
 
     describe('Mint fee', async () => {
-      it('The deployer can update the mint fee', async function () {
+      it('The owner can update the mint fee', async function () {
         await knowledgeLayerPlatformID.connect(deployer).updateMintFee(mintFee);
         const updatedMintFee = await knowledgeLayerPlatformID.mintFee();
 
@@ -319,7 +319,7 @@ describe('KnowledgeLayerPlatformID', () => {
   });
 
   describe('Withdraw', async () => {
-    it('Deployer can withdraw contract balance', async () => {
+    it('The owner can withdraw contract balance', async () => {
       const contractBalance = await ethers.provider.getBalance(knowledgeLayerPlatformID.address);
       const adminRole = await knowledgeLayerPlatformID.DEFAULT_ADMIN_ROLE();
 
