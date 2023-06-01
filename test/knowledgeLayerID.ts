@@ -127,6 +127,12 @@ describe('KnowledgeLayerID', () => {
     });
 
     describe('Handle validation', async () => {
+      it("Can't mint an handle that is taken", async function () {
+        await expect(
+          knowledgeLayerID.connect(frank).mint(carolPlatformId, 'alice'),
+        ).to.be.revertedWith('Handle already taken');
+      });
+
       it("Can't mint an handle with caps characters", async function () {
         await expect(
           knowledgeLayerID.connect(frank).mint(carolPlatformId, 'Frank'),
@@ -163,6 +169,13 @@ describe('KnowledgeLayerID', () => {
         await expect(
           knowledgeLayerID.connect(frank).mint(carolPlatformId, tooLongHandle),
         ).to.be.revertedWithCustomError(knowledgeLayerID, 'HandleLengthInvalid');
+      });
+    });
+
+    describe('Already minted', async () => {
+      it("Can't mint an ID if has already minted one", async () => {
+        const tx = knowledgeLayerID.connect(alice).mint(carolPlatformId, 'alice2');
+        await expect(tx).to.be.revertedWith('You already have a KnowledgeLayerID');
       });
     });
   });

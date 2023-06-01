@@ -151,5 +151,67 @@ describe('KnowledgeLayerPlatformID', () => {
         await expect(tx).to.changeTokenBalance(knowledgeLayerPlatformID, dave, 1);
       });
     });
+
+    describe('Handle validation', async () => {
+      it("Can't mint an handle that is taken", async function () {
+        await expect(
+          knowledgeLayerPlatformID.connect(frank).mint('alice-platform', { value: mintFee }),
+        ).to.be.revertedWith('Name already taken');
+      });
+
+      it("Can't mint an handle with caps characters", async function () {
+        await expect(
+          knowledgeLayerPlatformID.connect(frank).mint('FrankPlatform', { value: mintFee }),
+        ).to.be.revertedWithCustomError(
+          knowledgeLayerPlatformID,
+          'HandleContainsInvalidCharacters',
+        );
+      });
+
+      it("Can't mint an handle with restricted characters", async function () {
+        await expect(
+          knowledgeLayerPlatformID.connect(frank).mint('fr/nk', { value: mintFee }),
+        ).to.be.revertedWithCustomError(
+          knowledgeLayerPlatformID,
+          'HandleContainsInvalidCharacters',
+        );
+        await expect(
+          knowledgeLayerPlatformID.connect(frank).mint('f***nk', { value: mintFee }),
+        ).to.be.revertedWithCustomError(
+          knowledgeLayerPlatformID,
+          'HandleContainsInvalidCharacters',
+        );
+      });
+
+      it("Can't mint an handle that starts with a restricted character", async function () {
+        await expect(
+          knowledgeLayerPlatformID.connect(frank).mint('-frank', { value: mintFee }),
+        ).to.be.revertedWithCustomError(knowledgeLayerPlatformID, 'HandleFirstCharInvalid');
+        await expect(
+          knowledgeLayerPlatformID.connect(frank).mint('_frank', { value: mintFee }),
+        ).to.be.revertedWithCustomError(knowledgeLayerPlatformID, 'HandleFirstCharInvalid');
+      });
+
+      it("Can't mint an handle with length < 5 characters", async function () {
+        await expect(
+          knowledgeLayerPlatformID.connect(frank).mint('', { value: mintFee }),
+        ).to.be.revertedWithCustomError(knowledgeLayerPlatformID, 'HandleLengthInvalid');
+      });
+
+      it("Can't mint an handle with length > 31 characters", async function () {
+        const tooLongHandle = 'frank123456789qsitorhenchdyahe12';
+        expect(tooLongHandle.length).to.be.greaterThan(31);
+        await expect(
+          knowledgeLayerPlatformID.connect(frank).mint(tooLongHandle, { value: mintFee }),
+        ).to.be.revertedWithCustomError(knowledgeLayerPlatformID, 'HandleLengthInvalid');
+      });
+    });
+
+    describe('Already minted', async () => {
+      it("Can't mint an ID if has already minted one", async () => {
+        const tx = knowledgeLayerPlatformID.connect(alice).mint('alice2', { value: mintFee });
+        await expect(tx).to.be.revertedWith('Platform already has a Platform ID');
+      });
+    });
   });
 });
