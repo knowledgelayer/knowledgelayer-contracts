@@ -1,6 +1,6 @@
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { expect } from 'chai';
-import { BigNumber } from 'ethers';
+import { BigNumber, ContractTransaction } from 'ethers';
 import { ethers } from 'hardhat';
 import { KnowledgeLayerPlatformID } from '../typechain-types';
 import deploy from '../utils/deploy';
@@ -15,6 +15,8 @@ describe('KnowledgeLayerPlatformID', () => {
     frank: SignerWithAddress,
     alicePlatformId: BigNumber,
     knowledgeLayerPlatformID: KnowledgeLayerPlatformID;
+
+  const platformName = 'alice-platform';
 
   before(async () => {
     [deployer, alice, bob, carol, dave, , frank] = await ethers.getSigners();
@@ -60,34 +62,49 @@ describe('KnowledgeLayerPlatformID', () => {
         expect(isWhitelisted).to.be.equal(true);
       });
 
-      it('Can mint an ID if whitelisted', async () => {
-        const platformName = 'alice-platform';
-        const totalSupplyBefore = await knowledgeLayerPlatformID.totalSupply();
+      describe('Can mint an ID if whitelisted', async () => {
+        let tx: ContractTransaction;
+        let platformId: BigNumber;
+        let totalSupplyBefore: BigNumber;
 
-        const tx = await knowledgeLayerPlatformID.connect(alice).mint(platformName);
-        const receipt = await tx.wait();
+        before(async () => {
+          totalSupplyBefore = await knowledgeLayerPlatformID.totalSupply();
 
-        // Check that the ID was set correctly
-        const platformId: BigNumber = receipt.events?.find((e) => e.event === 'Mint')?.args
-          ?.platformId;
-        alicePlatformId = platformId;
-        expect(await knowledgeLayerPlatformID.ids(alice.address)).to.be.equal(platformId);
+          tx = await knowledgeLayerPlatformID.connect(alice).mint(platformName);
+          const receipt = await tx.wait();
 
-        // Check that the token was minted correctly
-        await expect(tx).to.changeTokenBalance(knowledgeLayerPlatformID, alice, 1);
-        expect(await knowledgeLayerPlatformID.ownerOf(platformId)).to.be.equal(alice.address);
+          platformId = receipt.events?.find((e) => e.event === 'Mint')?.args?.platformId;
+          alicePlatformId = platformId;
+        });
 
-        // Check that the profile name was saved correctly
-        const platformData = await knowledgeLayerPlatformID.platforms(platformId);
-        expect(platformData.name).to.be.equal(platformName);
+        it('Creates platform profile with the correct data', async () => {
+          expect(await knowledgeLayerPlatformID.ids(alice.address)).to.be.equal(platformId);
 
-        // Check that the total supply was updated
-        const totalSupplyAfter = await knowledgeLayerPlatformID.totalSupply();
-        expect(totalSupplyAfter).to.be.equal(totalSupplyBefore.add(1));
+          const platformData = await knowledgeLayerPlatformID.platforms(platformId);
+          expect(platformData.id).to.be.equal(platformId);
+          expect(platformData.name).to.be.equal(platformName);
+        });
 
-        // Check that the token URI was saved correctly
-        const tokenURI = await knowledgeLayerPlatformID.tokenURI(platformId);
-        expect(tokenURI).to.be.not.null;
+        it('Marks the platform name as taken', async () => {
+          const isTaken = await knowledgeLayerPlatformID.takenNames(platformName);
+          expect(isTaken).to.be.true;
+        });
+
+        it('Mints a token to the platform owner', async () => {
+          expect(await knowledgeLayerPlatformID.ids(alice.address)).to.be.equal(platformId);
+
+          // Check that the token was minted correctly
+          await expect(tx).to.changeTokenBalance(knowledgeLayerPlatformID, alice, 1);
+          expect(await knowledgeLayerPlatformID.ownerOf(platformId)).to.be.equal(alice.address);
+
+          // Check that the total supply was updated
+          const totalSupplyAfter = await knowledgeLayerPlatformID.totalSupply();
+          expect(totalSupplyAfter).to.be.equal(totalSupplyBefore.add(1));
+
+          // Check that the token URI was saved correctly
+          const tokenURI = await knowledgeLayerPlatformID.tokenURI(platformId);
+          expect(tokenURI).to.be.not.null;
+        });
       });
     });
 
@@ -155,7 +172,7 @@ describe('KnowledgeLayerPlatformID', () => {
     describe('Handle validation', async () => {
       it("Can't mint an handle that is taken", async function () {
         await expect(
-          knowledgeLayerPlatformID.connect(frank).mint('alice-platform', { value: mintFee }),
+          knowledgeLayerPlatformID.connect(frank).mint(platformName, { value: mintFee }),
         ).to.be.revertedWith('Name already taken');
       });
 
@@ -170,13 +187,13 @@ describe('KnowledgeLayerPlatformID', () => {
 
       it("Can't mint an handle with restricted characters", async function () {
         await expect(
-          knowledgeLayerPlatformID.connect(frank).mint('fr/nk', { value: mintFee }),
+          knowledgeLayerPlatformID.connect(frank).mint('fr/nkplatform', { value: mintFee }),
         ).to.be.revertedWithCustomError(
           knowledgeLayerPlatformID,
           'HandleContainsInvalidCharacters',
         );
         await expect(
-          knowledgeLayerPlatformID.connect(frank).mint('f***nk', { value: mintFee }),
+          knowledgeLayerPlatformID.connect(frank).mint('f***nkplatform', { value: mintFee }),
         ).to.be.revertedWithCustomError(
           knowledgeLayerPlatformID,
           'HandleContainsInvalidCharacters',
@@ -185,10 +202,10 @@ describe('KnowledgeLayerPlatformID', () => {
 
       it("Can't mint an handle that starts with a restricted character", async function () {
         await expect(
-          knowledgeLayerPlatformID.connect(frank).mint('-frank', { value: mintFee }),
+          knowledgeLayerPlatformID.connect(frank).mint('-frankplatform', { value: mintFee }),
         ).to.be.revertedWithCustomError(knowledgeLayerPlatformID, 'HandleFirstCharInvalid');
         await expect(
-          knowledgeLayerPlatformID.connect(frank).mint('_frank', { value: mintFee }),
+          knowledgeLayerPlatformID.connect(frank).mint('_frankplatform', { value: mintFee }),
         ).to.be.revertedWithCustomError(knowledgeLayerPlatformID, 'HandleFirstCharInvalid');
       });
 
@@ -199,7 +216,7 @@ describe('KnowledgeLayerPlatformID', () => {
       });
 
       it("Can't mint an handle with length > 31 characters", async function () {
-        const tooLongHandle = 'frank123456789qsitorhenchdyahe12';
+        const tooLongHandle = 'frankplatform123456789qsitorhenc';
         expect(tooLongHandle.length).to.be.greaterThan(31);
         await expect(
           knowledgeLayerPlatformID.connect(frank).mint(tooLongHandle, { value: mintFee }),

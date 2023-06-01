@@ -1,6 +1,6 @@
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { expect } from 'chai';
-import { BigNumber } from 'ethers';
+import { BigNumber, ContractTransaction } from 'ethers';
 import { ethers } from 'hardhat';
 import { KnowledgeLayerID, KnowledgeLayerPlatformID } from '../typechain-types';
 import deploy from '../utils/deploy';
@@ -53,33 +53,47 @@ describe('KnowledgeLayerID', () => {
         expect(mintStatus).to.be.equal(MintStatus.PUBLIC);
       });
 
-      it('Mint an ID', async () => {
+      describe('Mint an ID', async () => {
+        let tx: ContractTransaction;
+        let profileId: BigNumber;
+
         const handle = 'alice';
-        const tx = await knowledgeLayerID.connect(alice).mint(carolPlatformId, handle);
-        const receipt = await tx.wait();
 
-        // Check that the ID was set correctly
-        const profileId: BigNumber = receipt.events?.find((e) => e.event === 'Mint')?.args
-          ?.profileId;
-        aliceId = profileId;
-        expect(await knowledgeLayerID.ids(alice.address)).to.be.equal(profileId);
+        before(async () => {
+          tx = await knowledgeLayerID.connect(alice).mint(carolPlatformId, handle);
+          const receipt = await tx.wait();
 
-        // Check that the token was minted correctly
-        await expect(tx).to.changeTokenBalance(knowledgeLayerID, alice, 1);
-        expect(await knowledgeLayerID.ownerOf(profileId)).to.be.equal(alice.address);
+          // Check that the ID was set correctly
+          profileId = receipt.events?.find((e) => e.event === 'Mint')?.args?.profileId;
+          aliceId = profileId;
+        });
 
-        // Check that the profile data was saved correctly
-        const profileData = await knowledgeLayerID.profiles(profileId);
-        expect(profileData.platformId).to.be.equal(carolPlatformId);
-        expect(profileData.handle).to.be.equal(handle);
+        it('Creates profile with the correct data', async () => {
+          expect(await knowledgeLayerID.ids(alice.address)).to.be.equal(profileId);
 
-        // Check that the total supply was updated
-        const totalSupply = await knowledgeLayerID.totalSupply();
-        expect(totalSupply).to.be.equal(1);
+          const profileData = await knowledgeLayerID.profiles(profileId);
+          expect(profileData.platformId).to.be.equal(carolPlatformId);
+          expect(profileData.handle).to.be.equal(handle);
+        });
 
-        // Check that the token URI was saved correctly
-        const tokenURI = await knowledgeLayerID.tokenURI(profileId);
-        expect(tokenURI).to.be.not.null;
+        it('Marks the handle as taken', async () => {
+          const isTaken = await knowledgeLayerID.takenHandles(handle);
+          expect(isTaken).to.be.true;
+        });
+
+        it('Mints a token to the profile owner', async () => {
+          // Check that the token was minted correctly
+          await expect(tx).to.changeTokenBalance(knowledgeLayerID, alice, 1);
+          expect(await knowledgeLayerID.ownerOf(profileId)).to.be.equal(alice.address);
+
+          // Check that the total supply was updated
+          const totalSupply = await knowledgeLayerID.totalSupply();
+          expect(totalSupply).to.be.equal(1);
+
+          // Check that the token URI was saved correctly
+          const tokenURI = await knowledgeLayerID.tokenURI(profileId);
+          expect(tokenURI).to.be.not.null;
+        });
       });
     });
 

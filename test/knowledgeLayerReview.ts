@@ -1,6 +1,6 @@
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { expect } from 'chai';
-import { BigNumber } from 'ethers';
+import { BigNumber, ContractTransaction } from 'ethers';
 import { ethers } from 'hardhat';
 import {
   KnowledgeLayerCourse,
@@ -72,7 +72,7 @@ describe('KnowledgeLayerReview', () => {
   });
 
   describe('Create review', async () => {
-    it("Can't review if not a buyer of the course", async () => {
+    it("Can't review if is not a buyer of the course", async () => {
       await expect(
         knowledgeLayerReview.connect(carol).mint(carolId, courseId, reviewDataUri, 5),
       ).to.be.revertedWith('Not a buyer of the course');
@@ -82,6 +82,42 @@ describe('KnowledgeLayerReview', () => {
       await expect(
         knowledgeLayerReview.connect(carol).mint(carolId, courseId, reviewDataUri, 6),
       ).to.be.revertedWith('Invalid rating');
+    });
+
+    describe('Buyer can mint a review', async () => {
+      let tx: ContractTransaction;
+      let reviewId: BigNumber;
+
+      const rating = 5;
+
+      before(async () => {
+        tx = await knowledgeLayerReview.connect(bob).mint(bobId, courseId, reviewDataUri, rating);
+        const receipt = await tx.wait();
+
+        reviewId = receipt.events?.find((e) => e.event === 'Mint')?.args?.id;
+      });
+
+      it('Creates review with the correct data', async () => {
+        const review = await knowledgeLayerReview.reviews(reviewId);
+        expect(review.ownerId).to.equal(aliceId);
+        expect(review.courseId).to.equal(courseId);
+        expect(review.dataUri).to.equal(reviewDataUri);
+        expect(review.rating).to.equal(rating);
+      });
+
+      it('Mints a review token to the seller', async () => {
+        // Check that the token was minted correctly
+        await expect(tx).to.changeTokenBalance(knowledgeLayerReview, alice, 1);
+        expect(await knowledgeLayerReview.ownerOf(reviewId)).to.be.equal(alice.address);
+
+        // Check that the total supply was updated
+        const totalSupply = await knowledgeLayerReview.totalSupply();
+        expect(totalSupply).to.be.equal(1);
+
+        // Check that the token URI was saved correctly
+        const tokenURI = await knowledgeLayerReview.tokenURI(reviewId);
+        expect(tokenURI).to.be.not.null;
+      });
     });
   });
 });
