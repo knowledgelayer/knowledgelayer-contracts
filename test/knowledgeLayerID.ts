@@ -65,7 +65,7 @@ describe('KnowledgeLayerID', () => {
         expect(await knowledgeLayerID.ids(alice.address)).to.be.equal(profileId);
 
         // Check that the token was minted correctly
-        expect(await knowledgeLayerID.balanceOf(alice.address)).to.be.equal(1);
+        expect(tx).to.changeTokenBalance(knowledgeLayerID, alice, 1);
         expect(await knowledgeLayerID.ownerOf(profileId)).to.be.equal(alice.address);
 
         // Check that the profile data was saved correctly
@@ -97,10 +97,10 @@ describe('KnowledgeLayerID', () => {
       });
 
       it('Can mint an ID paying the fee', async () => {
-        await knowledgeLayerID.connect(bob).mint(carolPlatformId, 'bob__', {
+        const tx = await knowledgeLayerID.connect(bob).mint(carolPlatformId, 'bob__', {
           value: mintFee,
         });
-        expect(await knowledgeLayerID.balanceOf(bob.address)).to.be.equal(1);
+        expect(tx).to.changeTokenBalance(knowledgeLayerID, bob, 1);
       });
     });
 
@@ -111,19 +111,18 @@ describe('KnowledgeLayerID', () => {
       ).to.be.revertedWith('Incorrect amount of ETH for mint fee');
 
       // Mint is successful if the correct amount of ETH for mint fee is sent
-      await knowledgeLayerID
+      const tx = await knowledgeLayerID
         .connect(alice)
         .mintForAddress(carol.address, carolPlatformId, 'carol', { value: mintFee });
 
-      expect(await knowledgeLayerID.balanceOf(carol.address)).to.be.equal(1);
+      expect(tx).to.changeTokenBalance(knowledgeLayerID, carol, 1);
     });
 
     describe('Free mint', async () => {
       it('Deployer can mint an ID for free to an address', async () => {
         const tx = await knowledgeLayerID.freeMint(carolPlatformId, dave.address, 'dave');
         await expect(tx).to.changeEtherBalances([deployer, dave], [0, 0]);
-
-        expect(await knowledgeLayerID.balanceOf(dave.address)).to.be.equal(1);
+        expect(tx).to.changeTokenBalance(knowledgeLayerID, dave, 1);
       });
     });
 
