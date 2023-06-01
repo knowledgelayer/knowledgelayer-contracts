@@ -228,4 +228,28 @@ describe('KnowledgeLayerPlatformID', () => {
       expect(platformData.dataUri).to.equal(newDataUri);
     });
   });
+
+  describe('Token transfers', async () => {
+    it("Tokens can't be transferred", async () => {
+      await expect(
+        knowledgeLayerPlatformID
+          .connect(alice)
+          .transferFrom(alice.address, carol.address, alicePlatformId),
+      ).to.be.revertedWith('Token transfer is not allowed');
+
+      await expect(
+        knowledgeLayerPlatformID.connect(alice)[
+          // eslint-disable-next-line no-unexpected-multiline
+          'safeTransferFrom(address,address,uint256)'
+        ](alice.address, carol.address, alicePlatformId),
+      ).to.be.revertedWith('Token transfer is not allowed');
+
+      await expect(
+        knowledgeLayerPlatformID.connect(alice)[
+          // eslint-disable-next-line no-unexpected-multiline
+          'safeTransferFrom(address,address,uint256,bytes)'
+        ](alice.address, carol.address, alicePlatformId, []),
+      ).to.be.revertedWith('Token transfer is not allowed');
+    });
+  });
 });
