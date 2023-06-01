@@ -11,14 +11,14 @@ describe('KnowledgeLayerID', () => {
     alice: SignerWithAddress,
     aliceId: BigNumber,
     bob: SignerWithAddress,
-    bobId: BigNumber,
     carol: SignerWithAddress,
+    dave: SignerWithAddress,
     carolPlatformId: BigNumber,
     knowledgeLayerID: KnowledgeLayerID,
     knowledgeLayerPlatformID: KnowledgeLayerPlatformID;
 
   before(async () => {
-    [deployer, alice, bob, carol] = await ethers.getSigners();
+    [deployer, alice, bob, carol, dave] = await ethers.getSigners();
     [knowledgeLayerID, knowledgeLayerPlatformID] = await deploy();
 
     // Add carol to whitelist and mint platform ID
@@ -28,6 +28,8 @@ describe('KnowledgeLayerID', () => {
   });
 
   describe('Mint profile', async () => {
+    const mintFee = 100;
+
     describe('Minting paused', async () => {
       it('The deployer can pause the minting', async () => {
         await knowledgeLayerID.connect(deployer).updateMintStatus(MintStatus.ON_PAUSE);
@@ -81,8 +83,6 @@ describe('KnowledgeLayerID', () => {
     });
 
     describe('Mint fee', async () => {
-      const mintFee = 100;
-
       it('The deployer can update the mint fee', async function () {
         await knowledgeLayerID.connect(deployer).updateMintFee(mintFee);
         const updatedMintFee = await knowledgeLayerID.mintFee();
@@ -102,6 +102,18 @@ describe('KnowledgeLayerID', () => {
         expect(await knowledgeLayerID.balanceOf(bob.address)).to.be.equal(1);
       });
     });
+
+    describe('Mint profile for address', async () => {
+      // Mint fails if not enough ETH is sent
+      await expect(
+        knowledgeLayerID.connect(alice).mintForAddress(carol.address, carolPlatformId, 'carol'),
+      ).to.be.revertedWith('Incorrect amount of ETH for mint fee');
+
+      // Mint is successful if the correct amount of ETH for mint fee is sent
+      await knowledgeLayerID
+        .connect(alice)
+        .mintForAddress(carol.address, carolPlatformId, 'carol', { value: mintFee });
+    });
   });
 
   describe('Update profile', async () => {
@@ -113,6 +125,44 @@ describe('KnowledgeLayerID', () => {
 
       const profile = await knowledgeLayerID.profiles(aliceId);
       expect(profile.dataUri).to.equal(newDataUri);
+    });
+  });
+
+  describe('Delegation', async () => {
+    const dataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMg';
+
+    it('Can add a delegate', async () => {
+      // Fails if the caller is not the owner of the profile
+      const tx = knowledgeLayerID.connect(bob).addDelegate(aliceId, dave.address);
+      await expect(tx).to.be.revertedWith('Not the owner');
+
+      await knowledgeLayerID.connect(alice).addDelegate(aliceId, dave.address);
+      const isDelegate = await knowledgeLayerID.isDelegate(aliceId, dave.address);
+      expect(isDelegate).to.be.true;
+    });
+
+    it('Delegate can update profile on behalf of user', async function () {
+      // Fails if caller is not the owner or delegate
+      const failTx = knowledgeLayerID.connect(bob).updateProfileData(aliceId, dataUri);
+      await expect(failTx).to.be.revertedWith('Not owner or delegate');
+
+      const tx = await knowledgeLayerID.connect(dave).updateProfileData(aliceId, dataUri);
+      await expect(tx).to.not.be.reverted;
+    });
+
+    it('Can remove a delegate', async function () {
+      // Fails if the caller is not the owner of the profile
+      const tx = knowledgeLayerID.connect(bob).removeDelegate(aliceId, dave.address);
+      await expect(tx).to.be.revertedWith('Not the owner');
+
+      await knowledgeLayerID.connect(alice).removeDelegate(aliceId, dave.address);
+      const isDelegate = await knowledgeLayerID.isDelegate(alice.address, dave.address);
+      expect(isDelegate).to.be.false;
+    });
+
+    it("Delegate can't update profile on behalf of user after removed", async function () {
+      const tx = knowledgeLayerID.connect(dave).updateProfileData(aliceId, dataUri);
+      await expect(tx).to.be.revertedWith('Not owner or delegate');
     });
   });
 });
