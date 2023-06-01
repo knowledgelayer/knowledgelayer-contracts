@@ -127,19 +127,19 @@ describe('KnowledgeLayerID', () => {
     });
 
     describe('Handle validation', async () => {
-      it("Can't mint an handle that is taken", async function () {
+      it("Can't mint a taken handle", async function () {
         await expect(
           knowledgeLayerID.connect(frank).mint(carolPlatformId, 'alice'),
         ).to.be.revertedWith('Handle already taken');
       });
 
-      it("Can't mint an handle with caps characters", async function () {
+      it("Handle can't have caps characters", async function () {
         await expect(
           knowledgeLayerID.connect(frank).mint(carolPlatformId, 'Frank'),
         ).to.be.revertedWithCustomError(knowledgeLayerID, 'HandleContainsInvalidCharacters');
       });
 
-      it("Can't mint an handle with restricted characters", async function () {
+      it("Handle can't have restricted characters", async function () {
         await expect(
           knowledgeLayerID.connect(frank).mint(carolPlatformId, 'fr/nk'),
         ).to.be.revertedWithCustomError(knowledgeLayerID, 'HandleContainsInvalidCharacters');
@@ -148,7 +148,7 @@ describe('KnowledgeLayerID', () => {
         ).to.be.revertedWithCustomError(knowledgeLayerID, 'HandleContainsInvalidCharacters');
       });
 
-      it("Can't mint an handle that starts with a restricted character", async function () {
+      it("Handle can't start with a restricted character", async function () {
         await expect(
           knowledgeLayerID.connect(frank).mint(carolPlatformId, '-frank'),
         ).to.be.revertedWithCustomError(knowledgeLayerID, 'HandleFirstCharInvalid');
@@ -157,13 +157,13 @@ describe('KnowledgeLayerID', () => {
         ).to.be.revertedWithCustomError(knowledgeLayerID, 'HandleFirstCharInvalid');
       });
 
-      it("Can't mint an handle with length < 5 characters", async function () {
+      it("Handle can't be shorter than 1 character", async function () {
         await expect(
           knowledgeLayerID.connect(frank).mint(carolPlatformId, ''),
         ).to.be.revertedWithCustomError(knowledgeLayerID, 'HandleLengthInvalid');
       });
 
-      it("Can't mint an handle with length > 31 characters", async function () {
+      it("Handle can't be longer than 31 characters", async function () {
         const tooLongHandle = 'frank123456789qsitorhenchdyahe12';
         expect(tooLongHandle.length).to.be.greaterThan(31);
         await expect(

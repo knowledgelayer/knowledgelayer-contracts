@@ -71,7 +71,7 @@ describe('KnowledgeLayerCourse', () => {
       );
     });
 
-    it("Succeeds if the caller doesn't have escrow role", async () => {
+    it('Succeeds if the caller has escrow role', async () => {
       const escrowRole = await knowledgeLayerCourse.ESCROW_ROLE();
       await knowledgeLayerCourse.connect(deployer).grantRole(escrowRole, bob.address);
 
