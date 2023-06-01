@@ -176,4 +176,26 @@ describe('KnowledgeLayerID', () => {
       await expect(tx).to.be.revertedWith('Not owner or delegate');
     });
   });
+
+  describe('Token transfers', async () => {
+    it("Tokens can't be transferred", async () => {
+      await expect(
+        knowledgeLayerID.connect(alice).transferFrom(alice.address, carol.address, aliceId),
+      ).to.be.revertedWith('Token transfer is not allowed');
+
+      await expect(
+        knowledgeLayerID.connect(alice)[
+          // eslint-disable-next-line no-unexpected-multiline
+          'safeTransferFrom(address,address,uint256)'
+        ](alice.address, carol.address, aliceId),
+      ).to.be.revertedWith('Token transfer is not allowed');
+
+      await expect(
+        knowledgeLayerID.connect(alice)[
+          // eslint-disable-next-line no-unexpected-multiline
+          'safeTransferFrom(address,address,uint256,bytes)'
+        ](alice.address, carol.address, aliceId, []),
+      ).to.be.revertedWith('Token transfer is not allowed');
+    });
+  });
 });
