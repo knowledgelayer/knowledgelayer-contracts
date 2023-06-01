@@ -147,6 +147,24 @@ contract KnowledgeLayerEscrow is Ownable {
         setProtocolFee(100);
     }
 
+    // =========================== View functions ==============================
+
+    /**
+     * @dev Returns the details of a transaction. Only the transaction sender or receiver can call this function
+     * @param _transactionId Id of the transaction
+     */
+    function getTransaction(uint256 _transactionId) external view returns (Transaction memory) {
+        require(_transactionId < nextTransactionId.current(), "Invalid transaction id");
+        Transaction memory transaction = transactions[_transactionId];
+
+        address sender = _msgSender();
+        require(
+            sender == transaction.sender || sender == transaction.receiver,
+            "You are not related to this transaction"
+        );
+        return transaction;
+    }
+
     // =========================== User functions ==============================
 
     function createTransaction(

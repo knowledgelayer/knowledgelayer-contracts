@@ -24,9 +24,9 @@ describe('KnowledgeLayerReview', () => {
     knowledgeLayerEscrow: KnowledgeLayerEscrow,
     knowledgeLayerReview: KnowledgeLayerReview;
 
-  const aliceId = BigNumber.from(1);
-  const bobId = BigNumber.from(2);
-  const carolId = BigNumber.from(3);
+  const aliceId = 1;
+  const bobId = 2;
+  const carolId = 3;
   const courseId = 1;
   const coursePrice = ethers.utils.parseEther('0.01');
   const courseDataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMf';
