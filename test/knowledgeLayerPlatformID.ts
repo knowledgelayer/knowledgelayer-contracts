@@ -229,6 +229,71 @@ describe('KnowledgeLayerPlatformID', () => {
     });
   });
 
+  describe('Update origin fee', async () => {
+    const newOriginFee = 100;
+
+    it("Can't update origin fee if not platform owner", async () => {
+      const tx = knowledgeLayerPlatformID
+        .connect(bob)
+        .updateOriginFee(alicePlatformId, newOriginFee);
+      await expect(tx).to.be.revertedWith('Not the owner');
+    });
+
+    it('Can update origin fee if platform owner', async () => {
+      await knowledgeLayerPlatformID.connect(alice).updateOriginFee(alicePlatformId, newOriginFee);
+      const originFee = await knowledgeLayerPlatformID.getOriginFee(alicePlatformId);
+      expect(originFee).to.equal(newOriginFee);
+    });
+  });
+
+  describe('Update buy fee', async () => {
+    const newBuyFee = 200;
+
+    it("Can't update buy fee if not platform owner", async () => {
+      const tx = knowledgeLayerPlatformID.connect(bob).updateBuyFee(alicePlatformId, newBuyFee);
+      await expect(tx).to.be.revertedWith('Not the owner');
+    });
+
+    it('Can update buy fee if platform owner', async () => {
+      await knowledgeLayerPlatformID.connect(alice).updateBuyFee(alicePlatformId, newBuyFee);
+      const buyFee = await knowledgeLayerPlatformID.getBuyFee(alicePlatformId);
+      expect(buyFee).to.equal(newBuyFee);
+    });
+  });
+
+  describe('Update posting fee', async () => {
+    const newPostingFee = 300;
+
+    it("Can't update posting fee if not platform owner", async () => {
+      const tx = knowledgeLayerPlatformID
+        .connect(bob)
+        .updatePostingFee(alicePlatformId, newPostingFee);
+      await expect(tx).to.be.revertedWith('Not the owner');
+    });
+
+    it('Can update posting fee if platform owner', async () => {
+      await knowledgeLayerPlatformID
+        .connect(alice)
+        .updatePostingFee(alicePlatformId, newPostingFee);
+      const postingFee = await knowledgeLayerPlatformID.getPostingFee(alicePlatformId);
+      expect(postingFee).to.equal(newPostingFee);
+    });
+  });
+
+  describe('Update signer', async () => {
+    it("Can't update posting fee if not platform owner", async () => {
+      const tx = knowledgeLayerPlatformID.connect(bob).updateSigner(alicePlatformId, carol.address);
+      await expect(tx).to.be.revertedWith('Not the owner');
+    });
+
+    it('Can update posting fee if platform owner', async () => {
+      await knowledgeLayerPlatformID.connect(alice).updateSigner(alicePlatformId, carol.address);
+
+      const signer = await knowledgeLayerPlatformID.getSigner(alicePlatformId);
+      expect(signer).to.equal(carol.address);
+    });
+  });
+
   describe('Token transfers', async () => {
     it("Tokens can't be transferred", async () => {
       await expect(
