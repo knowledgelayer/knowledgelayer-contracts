@@ -17,7 +17,7 @@ describe('KnowledgeLayerReview', () => {
     alice: SignerWithAddress,
     bob: SignerWithAddress,
     carol: SignerWithAddress,
-    carolPlatformId: BigNumber,
+    reviewId: BigNumber,
     knowledgeLayerID: KnowledgeLayerID,
     knowledgeLayerPlatformID: KnowledgeLayerPlatformID,
     knowledgeLayerCourse: KnowledgeLayerCourse,
@@ -45,7 +45,7 @@ describe('KnowledgeLayerReview', () => {
     // Add carol to whitelist and mint platform ID
     await knowledgeLayerPlatformID.connect(deployer).whitelistUser(carol.address);
     await knowledgeLayerPlatformID.connect(carol).mint('carol-platform');
-    carolPlatformId = await knowledgeLayerPlatformID.connect(carol).ids(carol.address);
+    const carolPlatformId = await knowledgeLayerPlatformID.connect(carol).ids(carol.address);
 
     // Mint KnowledgeLayer IDs
     await knowledgeLayerID.connect(deployer).updateMintStatus(MintStatus.PUBLIC);
@@ -86,7 +86,6 @@ describe('KnowledgeLayerReview', () => {
 
     describe('Buyer can create a review', async () => {
       let tx: ContractTransaction;
-      let reviewId: BigNumber;
 
       const rating = 5;
 
@@ -129,6 +128,28 @@ describe('KnowledgeLayerReview', () => {
           knowledgeLayerReview.connect(bob).mint(bobId, courseId, reviewDataUri, 5),
         ).to.be.revertedWith('Already minted review');
       });
+    });
+  });
+
+  describe('Token transfers', async () => {
+    it("Tokens can't be transferred", async () => {
+      await expect(
+        knowledgeLayerReview.connect(alice).transferFrom(alice.address, carol.address, reviewId),
+      ).to.be.revertedWith('Token transfer is not allowed');
+
+      await expect(
+        knowledgeLayerReview.connect(alice)[
+          // eslint-disable-next-line no-unexpected-multiline
+          'safeTransferFrom(address,address,uint256)'
+        ](alice.address, carol.address, reviewId),
+      ).to.be.revertedWith('Token transfer is not allowed');
+
+      await expect(
+        knowledgeLayerReview.connect(alice)[
+          // eslint-disable-next-line no-unexpected-multiline
+          'safeTransferFrom(address,address,uint256,bytes)'
+        ](alice.address, carol.address, reviewId, []),
+      ).to.be.revertedWith('Token transfer is not allowed');
     });
   });
 });
