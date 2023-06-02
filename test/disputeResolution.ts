@@ -25,7 +25,10 @@ import { deploy } from '../utils/deploy';
 const aliceId = 1;
 const bobId = 2;
 const daveId = 3;
-const carolPlatformId = 1;
+const originPlatformId = 1;
+const buyPlatformId = 2;
+const originFee = 200;
+const buyFee = 300;
 const courseId = 1;
 const coursePrice = ethers.utils.parseEther('100');
 const courseDisputePeriod = 60 * 60 * 24 * 7; // 7 days
@@ -45,7 +48,7 @@ async function deployAndSetup(
   arbitrationFeeTimeout: number,
   tokenAddress: string,
 ): Promise<
-  [KnowledgeLayerPlatformID, KnowledgeLayerEscrow, KnowledgeLayerArbitrator, KnowledgeLayerCourse]
+  [KnowledgeLayerPlatformID, KnowledgeLayerCourse, KnowledgeLayerEscrow, KnowledgeLayerArbitrator]
 > {
   const [deployer, alice, bob, carol, dave] = await ethers.getSigners();
   const [
@@ -59,14 +62,19 @@ async function deployAndSetup(
 
   // Add carol to whitelist and mint platform ID
   await knowledgeLayerPlatformID.connect(deployer).whitelistUser(carol.address);
+  await knowledgeLayerPlatformID.connect(deployer).whitelistUser(dave.address);
   await knowledgeLayerPlatformID.connect(carol).mint('carol-platform');
-  const carolPlatformId = await knowledgeLayerPlatformID.connect(carol).ids(carol.address);
+  await knowledgeLayerPlatformID.connect(dave).mint('dave-platform');
+
+  // Update platform fees
+  await knowledgeLayerPlatformID.connect(carol).updateOriginFee(originPlatformId, originFee);
+  await knowledgeLayerPlatformID.connect(dave).updateBuyFee(buyPlatformId, buyFee);
 
   // Mint KnowledgeLayer IDs
   await knowledgeLayerID.connect(deployer).updateMintStatus(MintStatus.PUBLIC);
-  await knowledgeLayerID.connect(alice).mint(carolPlatformId, 'alice');
-  await knowledgeLayerID.connect(bob).mint(carolPlatformId, 'bob__');
-  await knowledgeLayerID.connect(dave).mint(carolPlatformId, 'dave_');
+  await knowledgeLayerID.connect(alice).mint(originPlatformId, 'alice');
+  await knowledgeLayerID.connect(bob).mint(originPlatformId, 'bob__');
+  await knowledgeLayerID.connect(dave).mint(originPlatformId, 'dave_');
 
   // Add KnowledgeLayerArbitrator to platform available arbitrators
   await knowledgeLayerPlatformID
@@ -76,22 +84,22 @@ async function deployAndSetup(
   // Update platform arbitrator, and fee timeout
   await knowledgeLayerPlatformID
     .connect(carol)
-    .updateArbitrator(carolPlatformId, knowledgeLayerArbitrator.address, []);
+    .updateArbitrator(originPlatformId, knowledgeLayerArbitrator.address, []);
   await knowledgeLayerPlatformID
     .connect(carol)
-    .updateArbitrationFeeTimeout(carolPlatformId, arbitrationFeeTimeout);
+    .updateArbitrationFeeTimeout(originPlatformId, arbitrationFeeTimeout);
 
   // Update arbitration cost
   await knowledgeLayerArbitrator
     .connect(carol)
-    .setArbitrationPrice(carolPlatformId, arbitrationCost);
+    .setArbitrationPrice(originPlatformId, arbitrationCost);
 
   // Alice creates a course
   await knowledgeLayerCourse
     .connect(alice)
     .createCourse(
       aliceId,
-      carolPlatformId,
+      originPlatformId,
       coursePrice,
       tokenAddress,
       courseDisputePeriod,
@@ -100,50 +108,26 @@ async function deployAndSetup(
 
   return [
     knowledgeLayerPlatformID,
+    knowledgeLayerCourse,
     knowledgeLayerEscrow,
     knowledgeLayerArbitrator,
-    knowledgeLayerCourse,
   ];
 }
 
-async function getTransactionDetails(
-  knowledgeLayerPlatformID: KnowledgeLayerPlatformID,
-  knowledgeLayerEscrow: KnowledgeLayerEscrow,
-): Promise<[BigNumber, number, number, number]> {
-  const platform = await knowledgeLayerPlatformID.platforms(carolPlatformId);
-  const protocolFee = await knowledgeLayerEscrow.protocolFee();
-  const originFee = platform.originFee;
-  const buyFee = platform.buyFee;
-  const totalTransactionAmount = transactionAmount.add(
-    transactionAmount.mul(protocolFee + buyFee + originFee).div(FEE_DIVIDER),
-  );
-
-  return [totalTransactionAmount, protocolFee, originFee, buyFee];
-}
-
 async function createTransaction(
-  knowledgeLayerPlatformID: KnowledgeLayerPlatformID,
-  knowledgeLayerCourse: KnowledgeLayerCourse,
   knowledgeLayerEscrow: KnowledgeLayerEscrow,
   signer: SignerWithAddress,
   profileId: number,
 ): Promise<[ContractTransaction, BigNumber, number, number, number]> {
-  // Create transaction
-  const [totalTransactionAmount, protocolFee, ,] = await getTransactionDetails(
-    knowledgeLayerPlatformID,
-    knowledgeLayerEscrow,
+  const protocolFee = await knowledgeLayerEscrow.protocolFee();
+  const totalTransactionAmount = transactionAmount.add(
+    transactionAmount.mul(protocolFee + originFee + buyFee).div(FEE_DIVIDER),
   );
 
-  const course = await knowledgeLayerCourse.getCourse(courseId);
-  const originFee = await knowledgeLayerPlatformID.getOriginFee(course.platformId);
-  const buyFee = await knowledgeLayerPlatformID.getBuyFee(carolPlatformId);
-  const totalPrice = coursePrice.add(
-    coursePrice.mul(originFee + buyFee + protocolFee).div(FEE_DIVIDER),
-  );
   const tx = await knowledgeLayerEscrow
     .connect(signer)
-    .createTransaction(profileId, courseId, carolPlatformId, META_EVIDENCE_CID, {
-      value: totalPrice,
+    .createTransaction(profileId, courseId, buyPlatformId, META_EVIDENCE_CID, {
+      value: totalTransactionAmount,
     });
 
   return [tx, totalTransactionAmount, protocolFee, originFee, buyFee];
@@ -154,14 +138,11 @@ describe.only('Dispute Resolution, standard flow', () => {
     bob: SignerWithAddress,
     carol: SignerWithAddress,
     dave: SignerWithAddress,
-    knowledgeLayerPlatformID: KnowledgeLayerPlatformID,
     knowledgeLayerEscrow: KnowledgeLayerEscrow,
     knowledgeLayerArbitrator: KnowledgeLayerArbitrator,
-    knowledgeLayerCourse: KnowledgeLayerCourse,
     protocolFee: number,
     originFee: number,
-    buyFee: number,
-    platform: KnowledgeLayerPlatformID.PlatformStructOutput;
+    buyFee: number;
 
   const rulingId = 1;
   const newArbitrationCost = ethers.utils.parseEther('0.008');
@@ -169,12 +150,10 @@ describe.only('Dispute Resolution, standard flow', () => {
 
   before(async () => {
     [, alice, bob, carol, dave] = await ethers.getSigners();
-    [
-      knowledgeLayerPlatformID,
-      knowledgeLayerEscrow,
-      knowledgeLayerArbitrator,
-      knowledgeLayerCourse,
-    ] = await deployAndSetup(ARBITRATION_FEE_TIMEOUT, ETH_ADDRESS);
+    [, , knowledgeLayerEscrow, knowledgeLayerArbitrator] = await deployAndSetup(
+      ARBITRATION_FEE_TIMEOUT,
+      ETH_ADDRESS,
+    );
   });
 
   describe('Submit meta evidence', async () => {
@@ -183,8 +162,6 @@ describe.only('Dispute Resolution, standard flow', () => {
     before(async () => {
       // Create transaction, Bob buys Alice's course
       [tx, , protocolFee, originFee, buyFee] = await createTransaction(
-        knowledgeLayerPlatformID,
-        knowledgeLayerCourse,
         knowledgeLayerEscrow,
         bob,
         bobId,
@@ -274,7 +251,7 @@ describe.only('Dispute Resolution, standard flow', () => {
       // Carol (platform owner) decreases arbitration fee on arbitrator
       await knowledgeLayerArbitrator
         .connect(carol)
-        .setArbitrationPrice(carolPlatformId, newArbitrationCost);
+        .setArbitrationPrice(originPlatformId, newArbitrationCost);
     });
 
     it('Fails if the transaction does not have an arbitrator set', async () => {
@@ -340,7 +317,7 @@ describe.only('Dispute Resolution, standard flow', () => {
         const dispute = await knowledgeLayerArbitrator.disputes(disputeId);
         expect(dispute.arbitrated).to.be.eq(knowledgeLayerEscrow.address);
         expect(dispute.fee).to.be.eq(newArbitrationCost);
-        expect(dispute.platformId).to.be.eq(carolPlatformId);
+        expect(dispute.platformId).to.be.eq(originPlatformId);
 
         const status = await knowledgeLayerArbitrator.disputeStatus(disputeId);
         const ruling = await knowledgeLayerArbitrator.currentRuling(disputeId);
@@ -483,6 +460,52 @@ describe.only('Dispute Resolution, standard flow', () => {
     it('Submission of ruling fails if the dispute is already solved', async function () {
       const tx = knowledgeLayerArbitrator.connect(carol).giveRuling(disputeId, rulingId);
       await expect(tx).to.be.revertedWith('The dispute must not be solved already.');
+    });
+  });
+});
+
+describe.only('Dispute Resolution, with receiver failing to pay arbitration fee on time', function () {
+  let bob: SignerWithAddress, knowledgeLayerEscrow: KnowledgeLayerEscrow, protocolFee: number;
+
+  before(async () => {
+    [, , bob] = await ethers.getSigners();
+    [, , knowledgeLayerEscrow] = await deployAndSetup(ARBITRATION_FEE_TIMEOUT, ETH_ADDRESS);
+
+    // Create transaction, Bob buys Alice's course
+    [, , protocolFee] = await createTransaction(knowledgeLayerEscrow, bob, bobId);
+
+    // Alice wants to raise a dispute and pays the arbitration fee
+    await knowledgeLayerEscrow.connect(bob).payArbitrationFeeBySender(transactionId, {
+      value: arbitrationCost,
+    });
+
+    // Simulate arbitration fee timeout expiration
+    await time.increase(ARBITRATION_FEE_TIMEOUT);
+  });
+
+  describe('Trigger arbitration fee timeout', function () {
+    let tx: ContractTransaction;
+
+    before(async function () {
+      tx = await knowledgeLayerEscrow.connect(bob).arbitrationFeeTimeout(transactionId);
+    });
+
+    it('The transaction data is updated correctly', async function () {
+      const transaction = await knowledgeLayerEscrow.connect(bob).getTransaction(transactionId);
+      expect(transaction.status).to.be.eq(TransactionStatus.Resolved);
+      expect(transaction.senderFee).to.be.eq(0);
+      expect(transaction.receiverFee).to.be.eq(0);
+    });
+
+    it('The sender receives escrow funds and gets arbitration fee reimbursed', async function () {
+      const totalAmountSent = transactionAmount
+        .add(transactionAmount.mul(protocolFee + originFee + buyFee).div(FEE_DIVIDER))
+        .add(arbitrationCost);
+
+      await expect(tx).to.changeEtherBalances(
+        [bob.address, knowledgeLayerEscrow.address],
+        [totalAmountSent, totalAmountSent.mul(-1)],
+      );
     });
   });
 });
