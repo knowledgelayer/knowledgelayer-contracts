@@ -603,25 +603,29 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         address payable sender = payable(transaction.sender);
         address payable receiver = payable(transaction.receiver);
         uint256 amount = transaction.amount;
+
+        // `senderFee` and `receiverFee` are equal to the arbitration cost.
         uint256 senderFee = transaction.senderFee;
         uint256 receiverFee = transaction.receiverFee;
 
-        transaction.amount = 0;
-        transaction.senderFee = 0;
-        transaction.receiverFee = 0;
         transaction.status = TransactionStatus.Resolved;
 
         // Send the funds to the winner and reimburse the arbitration fee.
         if (_ruling == SENDER_WINS) {
+            transaction.senderFee = 0;
             sender.call{value: senderFee}("");
             _reimburse(_transactionId, amount);
         } else if (_ruling == RECEIVER_WINS) {
+            transaction.receiverFee = 0;
             receiver.call{value: receiverFee}("");
             _release(_transactionId, amount);
         } else {
             // If no ruling is given split funds in half
             uint256 splitFeeAmount = senderFee / 2;
             uint256 splitTransactionAmount = amount / 2;
+
+            transaction.senderFee = splitFeeAmount;
+            transaction.receiverFee = splitFeeAmount;
 
             _reimburse(_transactionId, splitTransactionAmount);
             _release(_transactionId, splitTransactionAmount);
