@@ -9,8 +9,10 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IKnowledgeLayerID} from "./interfaces/IKnowledgeLayerID.sol";
 import {IKnowledgeLayerPlatformID} from "./interfaces/IKnowledgeLayerPlatformID.sol";
 import {IKnowledgeLayerCourse} from "./interfaces/IKnowledgeLayerCourse.sol";
+import {IArbitrable} from "./interfaces/IArbitrable.sol";
+import {Arbitrator} from "./Arbitrator.sol";
 
-contract KnowledgeLayerEscrow is Ownable {
+contract KnowledgeLayerEscrow is Ownable, IArbitrable {
     using Counters for Counters.Counter;
     using SafeERC20 for IERC20;
 
@@ -23,10 +25,27 @@ contract KnowledgeLayerEscrow is Ownable {
     }
 
     /**
-     * @notice Transaction status enum
+     * @notice Arbitration fee payment type
+     */
+    enum ArbitrationFeePaymentType {
+        Pay,
+        Reimburse
+    }
+
+    /**
+     * @notice Transation party type
+     */
+    enum Party {
+        Sender,
+        Receiver
+    }
+
+    /**
+     * @notice Transaction status
      */
     enum TransactionStatus {
         NoDispute, // No dispute has arisen about the transaction
+        WaitingSender, // Receiver has paid arbitration fee, while sender still has to do it
         WaitingReceiver, // Sender has paid arbitration fee, while receiver still has to do it
         DisputeCreated, // Both parties have paid the arbitration fee and a dispute has been created
         Resolved // The dispute has been resolved
@@ -45,6 +64,12 @@ contract KnowledgeLayerEscrow is Ownable {
      * @param protocolFee The % fee (per ten thousands) to be paid to the protocol
      * @param originFee The % fee (per ten thousands) to be paid to the platform where the course was created
      * @param buyFee The % fee (per ten thousands) to be paid to the platform where the course is being bought
+     * @param status The status of the transaction
+     * @param arbitrator The arbitrator of the transaction (address that can rule on disputes)
+     * @param disputeId The ID of the dispute, if it exists
+     * @param senderFee Total fees paid by the sender for the dispute.
+     * @param receiverFee Total fees paid by the receiver for the dispute.
+     * @param lastInteraction Timestamp of last interaction for the dispute.
      */
     struct Transaction {
         uint256 id;
@@ -59,6 +84,12 @@ contract KnowledgeLayerEscrow is Ownable {
         uint16 originFee;
         uint16 buyFee;
         TransactionStatus status;
+        Arbitrator arbitrator;
+        bytes arbitratorExtraData;
+        uint256 disputeId;
+        uint256 senderFee;
+        uint256 receiverFee;
+        uint256 lastInteraction;
     }
 
     // Divider used for fees
@@ -66,6 +97,9 @@ contract KnowledgeLayerEscrow is Ownable {
 
     // Index used to represent protocol where platform id is used
     uint8 private constant PROTOCOL_INDEX = 0;
+
+    // Amount of choices available for ruling the disputes
+    uint8 constant AMOUNT_OF_CHOICES = 2;
 
     // Transaction id to transaction
     mapping(uint256 => Transaction) private transactions;
@@ -81,6 +115,9 @@ contract KnowledgeLayerEscrow is Ownable {
 
     // Address which will receive the protocol fees
     address payable public protocolTreasuryAddress;
+
+    // One-to-one relationship between the dispute and the transaction.
+    mapping(uint256 => uint256) public disputeIDtoTransactionID;
 
     // KnowledgeLayerID contract
     IKnowledgeLayerID private knowledgeLayerId;
@@ -129,6 +166,27 @@ contract KnowledgeLayerEscrow is Ownable {
      * @dev Emitted when a buy fee is released to a platform's balance
      */
     event BuyFeeReleased(uint256 platformId, uint256 courseId, address token, uint256 amount);
+
+    /**
+     * @dev Emitted when a party has to pay a fee for the dispute or would otherwise be considered as losing.
+     * @param _transactionId The id of the transaction.
+     * @param _party The party who has to pay.
+     */
+    event HasToPayFee(uint256 indexed _transactionId, Party _party);
+
+    /**
+     * @dev Emitted when a party either pays the arbitration fee or gets it reimbursed.
+     * @param _transactionId The id of the transaction.
+     * @param _paymentType Whether the party paid or got reimbursed.
+     * @param _party The party who has paid/got reimbursed the fee.
+     * @param _amount The amount paid/reimbursed
+     */
+    event ArbitrationFeePayment(
+        uint256 indexed _transactionId,
+        ArbitrationFeePaymentType _paymentType,
+        Party _party,
+        uint256 _amount
+    );
 
     // =========================== Modifiers ==============================
 
@@ -224,7 +282,13 @@ contract KnowledgeLayerEscrow is Ownable {
             protocolFee: protocolFee,
             originFee: originPlatform.originFee,
             buyFee: buyPlatform.buyFee,
-            status: TransactionStatus.NoDispute
+            status: TransactionStatus.NoDispute,
+            arbitrator: originPlatform.arbitrator,
+            arbitratorExtraData: originPlatform.arbitratorExtraData,
+            disputeId: 0,
+            senderFee: 0,
+            receiverFee: 0,
+            lastInteraction: block.timestamp
         });
 
         if (course.token != address(0)) {
@@ -253,6 +317,70 @@ contract KnowledgeLayerEscrow is Ownable {
         emit Payment(_transactionId, PaymentType.Release);
     }
 
+    /**
+     * @notice Allows the sender of the transaction to pay the arbitration fee to raise a dispute.
+     * @param _transactionId Id of the transaction.
+     */
+    function payArbitrationFeeBySender(uint256 _transactionId) public payable {
+        Transaction storage transaction = transactions[_transactionId];
+
+        require(address(transaction.arbitrator) != address(0), "Arbitrator not set");
+        require(transaction.status <= TransactionStatus.DisputeCreated, "Dispute already created");
+        require(_msgSender() == transaction.sender, "The caller must be the sender");
+
+        uint256 arbitrationCost = transaction.arbitrator.arbitrationCost(transaction.arbitratorExtraData);
+        transaction.senderFee += msg.value;
+        // The total fees paid by the sender should be the arbitration cost.
+        require(transaction.senderFee == arbitrationCost, "The sender fee must be equal to the arbitration cost");
+
+        transaction.lastInteraction = block.timestamp;
+
+        emit ArbitrationFeePayment(_transactionId, ArbitrationFeePaymentType.Pay, Party.Sender, msg.value);
+
+        // The receiver still has to pay. This can also happen if he has paid, but arbitrationCost has increased.
+        if (transaction.receiverFee < arbitrationCost) {
+            transaction.status = TransactionStatus.WaitingReceiver;
+            emit HasToPayFee(_transactionId, Party.Receiver);
+        } else {
+            // The receiver has also paid the fee. Create the dispute.
+            _raiseDispute(_transactionId, arbitrationCost);
+        }
+    }
+
+    /**
+     * @notice Allows the receiver of the transaction to pay the arbitration fee to accept the dispute.
+     * @param _transactionId Id of the transaction.
+     */
+    function payArbitrationFeeByReceiver(uint256 _transactionId) public payable {
+        Transaction storage transaction = transactions[_transactionId];
+
+        require(address(transaction.arbitrator) != address(0), "Arbitrator not set");
+        require(
+            transaction.status == TransactionStatus.WaitingSender ||
+                transaction.status == TransactionStatus.WaitingReceiver,
+            "Receiver does not have to pay"
+        );
+        require(_msgSender() == transaction.receiver, "The caller must be the receiver");
+
+        uint256 arbitrationCost = transaction.arbitrator.arbitrationCost(transaction.arbitratorExtraData);
+        transaction.receiverFee += msg.value;
+        // The total fees paid by the receiver should be the arbitration cost.
+        require(transaction.receiverFee == arbitrationCost, "The receiver fee must be equal to the arbitration cost");
+
+        transaction.lastInteraction = block.timestamp;
+
+        emit ArbitrationFeePayment(_transactionId, ArbitrationFeePaymentType.Pay, Party.Receiver, msg.value);
+
+        // The sender still has to pay. This can also happen if he has paid, but arbitrationCost has increased.
+        if (transaction.senderFee < arbitrationCost) {
+            transaction.status = TransactionStatus.WaitingSender;
+            emit HasToPayFee(_transactionId, Party.Sender);
+        } else {
+            // The sender has also paid the fee. Create the dispute.
+            _raiseDispute(_transactionId, arbitrationCost);
+        }
+    }
+
     // =========================== Platform functions ==============================
 
     /**
@@ -278,6 +406,15 @@ contract KnowledgeLayerEscrow is Ownable {
         _transferBalance(recipient, _tokenAddress, amount);
     }
 
+    // =========================== Arbitrator functions ==============================
+
+    /**
+     * @notice Allows the arbitrator to give a ruling for a dispute.
+     * @param _disputeID The ID of the dispute in the Arbitrator contract.
+     * @param _ruling Ruling given by the arbitrator. Note that 0 is reserved for "Not able/wanting to make a decision".
+     */
+    function rule(uint256 _disputeID, uint256 _ruling) public {}
+
     // =========================== Owner functions ==============================
 
     /**
@@ -296,6 +433,43 @@ contract KnowledgeLayerEscrow is Ownable {
      */
     function setProtocolTreasuryAddress(address payable _protocolTreasuryAddress) external onlyOwner {
         protocolTreasuryAddress = _protocolTreasuryAddress;
+    }
+
+    // =========================== Internal functions ==============================
+
+    /**
+     * @notice Creates a dispute, paying the arbitration fee to the arbitrator. Parties are refund if
+     *         they overpaid for the arbitration fee.
+     * @param _transactionId Id of the transaction.
+     * @param _arbitrationCost Amount to pay the arbitrator.
+     */
+    function _raiseDispute(uint256 _transactionId, uint256 _arbitrationCost) internal {
+        Transaction storage transaction = transactions[_transactionId];
+        transaction.status = TransactionStatus.DisputeCreated;
+        Arbitrator arbitrator = transaction.arbitrator;
+
+        transaction.disputeId = arbitrator.createDispute{value: _arbitrationCost}(
+            AMOUNT_OF_CHOICES,
+            transaction.arbitratorExtraData
+        );
+        disputeIDtoTransactionID[transaction.disputeId] = _transactionId;
+        emit Dispute(arbitrator, transaction.disputeId, _transactionId, _transactionId);
+
+        // Refund sender if it overpaid.
+        if (transaction.senderFee > _arbitrationCost) {
+            uint256 extraFeeSender = transaction.senderFee - _arbitrationCost;
+            transaction.senderFee = _arbitrationCost;
+            payable(transaction.sender).call{value: extraFeeSender}("");
+            emit ArbitrationFeePayment(_transactionId, ArbitrationFeePaymentType.Reimburse, Party.Sender, msg.value);
+        }
+
+        // Refund receiver if it overpaid.
+        if (transaction.receiverFee > _arbitrationCost) {
+            uint256 extraFeeReceiver = transaction.receiverFee - _arbitrationCost;
+            transaction.receiverFee = _arbitrationCost;
+            payable(transaction.receiver).call{value: extraFeeReceiver}("");
+            emit ArbitrationFeePayment(_transactionId, ArbitrationFeePaymentType.Reimburse, Party.Receiver, msg.value);
+        }
     }
 
     // =========================== Private functions ==============================

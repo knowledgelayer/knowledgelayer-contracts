@@ -3,6 +3,8 @@ pragma solidity ^0.8.9;
 
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
+import {Arbitrator} from "../Arbitrator.sol";
+
 interface IKnowledgeLayerPlatformID is IERC721 {
     struct Platform {
         uint256 id;
@@ -12,6 +14,9 @@ interface IKnowledgeLayerPlatformID is IERC721 {
         uint16 buyFee;
         uint256 postingFee;
         address signer;
+        Arbitrator arbitrator;
+        bytes arbitratorExtraData;
+        uint256 arbitrationFeeTimeout;
     }
 
     function balanceOf(address _platformAddress) external view returns (uint256);
