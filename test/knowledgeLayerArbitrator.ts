@@ -6,7 +6,7 @@ import { KnowledgeLayerArbitrator, KnowledgeLayerPlatformID } from '../typechain
 import { deploy } from '../utils/deploy';
 import { DisputeStatus } from '../utils/constants';
 
-describe.only('KnowledgeLayerArbitrator', () => {
+describe('KnowledgeLayerArbitrator', () => {
   let deployer: SignerWithAddress,
     alice: SignerWithAddress,
     bob: SignerWithAddress,

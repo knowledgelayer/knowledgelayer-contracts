@@ -448,11 +448,6 @@ describe.only('Dispute Resolution, standard flow', () => {
           .to.emit(knowledgeLayerEscrow, 'Payment')
           .withArgs(transactionId, PaymentType.Reimburse, transactionAmount);
       });
-
-      it('Submission of ruling fails if the dispute is already solved', async function () {
-        const tx = knowledgeLayerArbitrator.connect(carol).giveRuling(disputeId, rulingId);
-        await expect(tx).to.be.revertedWith('The dispute must not be solved already.');
-      });
     });
   });
 
@@ -467,6 +462,27 @@ describe.only('Dispute Resolution, standard flow', () => {
         value: ethers.utils.parseEther('100'),
       });
       await expect(tx).to.be.revertedWith('Not enough ETH to cover appeal costs.');
+    });
+  });
+
+  describe('Attempt to do dispute actions on a resolved dispute', async function () {
+    it('Fails to pay arbitration fee by sender on resolved dispute', async function () {
+      const tx = knowledgeLayerEscrow.connect(bob).payArbitrationFeeBySender(transactionId, {
+        value: newArbitrationCost,
+      });
+      await expect(tx).to.be.revertedWith('Dispute already created');
+    });
+
+    it('Fails to submit evidence on resolved dispute', async function () {
+      const tx = knowledgeLayerEscrow
+        .connect(bob)
+        .submitEvidence(bobId, transactionId, EVIDENCE_CID);
+      await expect(tx).to.be.revertedWith('Must not send evidence if the dispute is resolved');
+    });
+
+    it('Submission of ruling fails if the dispute is already solved', async function () {
+      const tx = knowledgeLayerArbitrator.connect(carol).giveRuling(disputeId, rulingId);
+      await expect(tx).to.be.revertedWith('The dispute must not be solved already.');
     });
   });
 });
