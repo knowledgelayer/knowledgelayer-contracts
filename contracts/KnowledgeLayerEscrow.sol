@@ -23,6 +23,16 @@ contract KnowledgeLayerEscrow is Ownable {
     }
 
     /**
+     * @notice Transaction status enum
+     */
+    enum TransactionStatus {
+        NoDispute, // No dispute has arisen about the transaction
+        WaitingReceiver, // Sender has paid arbitration fee, while receiver still has to do it
+        DisputeCreated, // Both parties have paid the arbitration fee and a dispute has been created
+        Resolved // The dispute has been resolved
+    }
+
+    /**
      * @notice Transaction struct
      * @param id Id of the transaction
      * @param sender The party paying the escrow amount
@@ -48,6 +58,7 @@ contract KnowledgeLayerEscrow is Ownable {
         uint16 protocolFee;
         uint16 originFee;
         uint16 buyFee;
+        TransactionStatus status;
     }
 
     // Divider used for fees
@@ -212,7 +223,8 @@ contract KnowledgeLayerEscrow is Ownable {
             releasableAt: releasableAt,
             protocolFee: protocolFee,
             originFee: originPlatform.originFee,
-            buyFee: buyPlatform.buyFee
+            buyFee: buyPlatform.buyFee,
+            status: TransactionStatus.NoDispute
         });
 
         if (course.token != address(0)) {
@@ -231,6 +243,7 @@ contract KnowledgeLayerEscrow is Ownable {
         Transaction memory transaction = transactions[_transactionId];
 
         require(transaction.receiver == knowledgeLayerId.ownerOf(_profileId), "Not the receiver");
+        require(transaction.status == TransactionStatus.NoDispute, "Transaction is in dispute");
         require(block.timestamp >= transaction.releasableAt, "Not yet releasable");
 
         _distributeFees(_transactionId);
