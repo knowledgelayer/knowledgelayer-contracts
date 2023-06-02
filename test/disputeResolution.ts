@@ -17,13 +17,15 @@ import {
   ARBITRATION_FEE_TIMEOUT,
   TransactionStatus,
   DisputeStatus,
+  EVIDENCE_CID,
 } from '../utils/constants';
 import { deploy } from '../utils/deploy';
 
 const aliceId = 1;
 const bobId = 2;
-const courseId = 1;
+const daveId = 3;
 const carolPlatformId = 1;
+const courseId = 1;
 const coursePrice = ethers.utils.parseEther('0.01');
 const courseDisputePeriod = 60 * 60 * 24 * 7; // 7 days
 const courseDataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMf';
@@ -44,7 +46,7 @@ async function deployAndSetup(
 ): Promise<
   [KnowledgeLayerPlatformID, KnowledgeLayerEscrow, KnowledgeLayerArbitrator, KnowledgeLayerCourse]
 > {
-  const [deployer, alice, bob, carol] = await ethers.getSigners();
+  const [deployer, alice, bob, carol, dave] = await ethers.getSigners();
   const [
     knowledgeLayerID,
     knowledgeLayerPlatformID,
@@ -63,6 +65,7 @@ async function deployAndSetup(
   await knowledgeLayerID.connect(deployer).updateMintStatus(MintStatus.PUBLIC);
   await knowledgeLayerID.connect(alice).mint(carolPlatformId, 'alice');
   await knowledgeLayerID.connect(bob).mint(carolPlatformId, 'bob__');
+  await knowledgeLayerID.connect(dave).mint(carolPlatformId, 'dave_');
 
   // Add KnowledgeLayerArbitrator to platform available arbitrators
   await knowledgeLayerPlatformID
@@ -227,7 +230,7 @@ describe.only('Dispute Resolution, standard flow', () => {
     });
 
     it('Fails if is not called by the sender of the transaction', async () => {
-      const tx = knowledgeLayerEscrow.connect(carol).payArbitrationFeeBySender(transactionId, {
+      const tx = knowledgeLayerEscrow.connect(dave).payArbitrationFeeBySender(transactionId, {
         value: arbitrationCost,
       });
       await expect(tx).to.be.revertedWith('The caller must be the sender');
@@ -296,7 +299,7 @@ describe.only('Dispute Resolution, standard flow', () => {
     });
 
     it('Fails if is not called by the receiver of the transaction', async () => {
-      const tx = knowledgeLayerEscrow.connect(carol).payArbitrationFeeByReceiver(transactionId, {
+      const tx = knowledgeLayerEscrow.connect(dave).payArbitrationFeeByReceiver(transactionId, {
         value: newArbitrationCost,
       });
       await expect(tx).to.be.revertedWith('The caller must be the receiver');
@@ -364,6 +367,45 @@ describe.only('Dispute Resolution, standard flow', () => {
     it('Release fails since ther must be no dispute to release', async function () {
       const tx = knowledgeLayerEscrow.connect(alice).release(aliceId, transactionId);
       await expect(tx).to.be.revertedWith('Transaction is in dispute');
+    });
+  });
+
+  describe('Submission of Evidence', async function () {
+    it('Fails if the transaction does not have an arbitrator set', async function () {
+      const tx = knowledgeLayerEscrow.connect(bob).submitEvidence(bobId, 0, EVIDENCE_CID);
+      await expect(tx).to.be.revertedWith('Arbitrator not set');
+    });
+
+    it('Fails if the cid is invalid', async function () {
+      const tx = knowledgeLayerEscrow.connect(bob).submitEvidence(bobId, transactionId, '');
+      await expect(tx).to.be.revertedWith('Invalid cid');
+    });
+
+    it('Fails if evidence is not submitted by either sender or receiver of the transaction', async function () {
+      const tx = knowledgeLayerEscrow
+        .connect(dave)
+        .submitEvidence(daveId, transactionId, EVIDENCE_CID);
+      await expect(tx).to.be.revertedWith(
+        'The caller must be the sender or the receiver or their delegates',
+      );
+    });
+
+    it('Sender can submit evidence', async function () {
+      const tx = await knowledgeLayerEscrow
+        .connect(bob)
+        .submitEvidence(bobId, transactionId, EVIDENCE_CID);
+      await expect(tx)
+        .to.emit(knowledgeLayerEscrow, 'Evidence')
+        .withArgs(knowledgeLayerArbitrator.address, transactionId, bob.address, EVIDENCE_CID);
+    });
+
+    it('Receiver can submit evidence', async function () {
+      const tx = await knowledgeLayerEscrow
+        .connect(alice)
+        .submitEvidence(aliceId, transactionId, EVIDENCE_CID);
+      await expect(tx)
+        .to.emit(knowledgeLayerEscrow, 'Evidence')
+        .withArgs(knowledgeLayerArbitrator.address, transactionId, alice.address, EVIDENCE_CID);
     });
   });
 });
