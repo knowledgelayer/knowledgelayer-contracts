@@ -10,7 +10,7 @@ import {
   KnowledgeLayerReview,
 } from '../typechain-types';
 import { ETH_ADDRESS, FEE_DIVIDER, META_EVIDENCE_CID, MintStatus } from '../utils/constants';
-import deploy from '../utils/deploy';
+import { deploy } from '../utils/deploy';
 import { BigNumber } from 'ethers';
 
 describe('Delegation', function () {

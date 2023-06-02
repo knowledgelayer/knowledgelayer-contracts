@@ -4,7 +4,7 @@ import { ethers } from 'hardhat';
 
 import { KnowledgeLayerID, KnowledgeLayerPlatformID } from '../typechain-types';
 import { MintStatus } from '../utils/constants';
-import deploy from '../utils/deploy';
+import { deploy } from '../utils/deploy';
 
 const handles = [
   {

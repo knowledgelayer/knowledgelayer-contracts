@@ -7,7 +7,7 @@ import {
   KnowledgeLayerID,
   KnowledgeLayerPlatformID,
 } from '../typechain-types';
-import deploy from '../utils/deploy';
+import { deploy } from '../utils/deploy';
 import { ETH_ADDRESS, MintStatus } from '../utils/constants';
 
 describe('KnowledgeLayerCourse', () => {

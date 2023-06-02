@@ -9,7 +9,7 @@ import {
   KnowledgeLayerPlatformID,
   KnowledgeLayerReview,
 } from '../typechain-types';
-import deploy from '../utils/deploy';
+import { deploy } from '../utils/deploy';
 import {
   ETH_ADDRESS,
   FEE_DIVIDER,

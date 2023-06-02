@@ -5,7 +5,7 @@ import keccak256 from 'keccak256';
 import MerkleTree from 'merkletreejs';
 import { KnowledgeLayerID } from '../typechain-types';
 import { MintStatus } from '../utils/constants';
-import deploy from '../utils/deploy';
+import { deploy } from '../utils/deploy';
 
 const platformId = 1;
 const reservedHandles = ['alice', 'bob__', 'carol'];

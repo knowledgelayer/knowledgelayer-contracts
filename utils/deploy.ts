@@ -8,7 +8,7 @@ import {
   KnowledgeLayerArbitrator,
 } from '../typechain-types';
 
-export default async function deploy(): Promise<
+export async function deploy(): Promise<
   [
     KnowledgeLayerID,
     KnowledgeLayerPlatformID,

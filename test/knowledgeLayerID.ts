@@ -3,7 +3,7 @@ import { expect } from 'chai';
 import { BigNumber, ContractTransaction } from 'ethers';
 import { ethers } from 'hardhat';
 import { KnowledgeLayerID, KnowledgeLayerPlatformID } from '../typechain-types';
-import deploy from '../utils/deploy';
+import { deploy } from '../utils/deploy';
 import { MintStatus } from '../utils/constants';
 
 describe('KnowledgeLayerID', () => {
