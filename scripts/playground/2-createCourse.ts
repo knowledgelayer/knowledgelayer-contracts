@@ -42,12 +42,13 @@ async function main() {
 
   // Create course
   const coursePrice = ethers.utils.parseEther('0.00000001');
+  const courseDisputePeriod = 60 * 60 * 24 * 7; // 7 days
   const platformId = 1;
   const aliceId = await knowledgeLayerID.connect(alice).ids(alice.address);
 
   const tx = await knowledgeLayerCourse
     .connect(alice)
-    .createCourse(aliceId, platformId, coursePrice, ETH_ADDRESS, dataUri);
+    .createCourse(aliceId, platformId, coursePrice, ETH_ADDRESS, courseDisputePeriod, dataUri);
   const receipt = await tx.wait();
 
   const id = receipt.events?.find((e) => e.event === 'CourseCreated')?.args?.courseId;

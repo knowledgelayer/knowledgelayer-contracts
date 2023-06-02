@@ -30,6 +30,7 @@ describe('Delegation', function () {
   const bobId = 2;
   const courseId = 1;
   const coursePrice = 100;
+  const courseDisputePeriod = 60 * 60 * 24 * 7; // 7 days
   const courseDataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMf';
   const transactionId = 1;
 
@@ -79,7 +80,14 @@ describe('Delegation', function () {
   it('Delegate can create course on behalf of user', async () => {
     const tx = await knowledgeLayerCourse
       .connect(dave)
-      .createCourse(aliceId, carolPlatformId, coursePrice, ETH_ADDRESS, courseDataUri);
+      .createCourse(
+        aliceId,
+        carolPlatformId,
+        coursePrice,
+        ETH_ADDRESS,
+        courseDisputePeriod,
+        courseDataUri,
+      );
     expect(tx).to.not.be.reverted;
   });
 
@@ -88,7 +96,14 @@ describe('Delegation', function () {
 
     const tx = await knowledgeLayerCourse
       .connect(dave)
-      .updateCourse(aliceId, carolPlatformId, coursePrice, ETH_ADDRESS, newCourseDataUri);
+      .updateCourse(
+        aliceId,
+        carolPlatformId,
+        coursePrice,
+        ETH_ADDRESS,
+        courseDisputePeriod,
+        newCourseDataUri,
+      );
     expect(tx).to.not.be.reverted;
   });
 

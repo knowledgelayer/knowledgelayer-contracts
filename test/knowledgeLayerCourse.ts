@@ -24,6 +24,7 @@ describe('KnowledgeLayerCourse', () => {
 
   const courseId = 1;
   const coursePrice = 100;
+  const courseDisputePeriod = 60 * 60 * 24 * 7; // 7 days
   const courseDataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMf';
 
   before(async () => {
@@ -49,7 +50,14 @@ describe('KnowledgeLayerCourse', () => {
       // Alice creates a course
       const tx = await knowledgeLayerCourse
         .connect(alice)
-        .createCourse(aliceId, carolPlatformId, coursePrice, ETH_ADDRESS, courseDataUri);
+        .createCourse(
+          aliceId,
+          carolPlatformId,
+          coursePrice,
+          ETH_ADDRESS,
+          courseDisputePeriod,
+          courseDataUri,
+        );
       await tx.wait();
     });
 
@@ -87,26 +95,28 @@ describe('KnowledgeLayerCourse', () => {
 
   describe('Update course', async () => {
     const newPrice = 200;
+    const newDisputePeriod = 60 * 60 * 24 * 14; // 14 days
     const newDataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMg';
 
     before(async () => {
       // Alice updates her course price
       const tx = await knowledgeLayerCourse
         .connect(alice)
-        .updateCourse(aliceId, courseId, newPrice, ETH_ADDRESS, newDataUri);
+        .updateCourse(aliceId, courseId, newPrice, ETH_ADDRESS, newDisputePeriod, newDataUri);
       await tx.wait();
     });
 
     it('Updates the course data', async () => {
       const course = await knowledgeLayerCourse.courses(courseId);
       expect(course.price).to.equal(newPrice);
+      expect(course.disputePeriod).to.equal(newDisputePeriod);
       expect(course.dataUri).to.equal(newDataUri);
     });
 
     it('Only the course owner can update the course price', async () => {
       const tx = knowledgeLayerCourse
         .connect(bob)
-        .updateCourse(bobId, courseId, newPrice, ETH_ADDRESS, newDataUri);
+        .updateCourse(bobId, courseId, newPrice, ETH_ADDRESS, newDisputePeriod, newDataUri);
       await expect(tx).to.be.revertedWith('Not the owner');
     });
   });

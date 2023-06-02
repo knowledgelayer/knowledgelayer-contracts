@@ -35,6 +35,7 @@ const escrowTests = (isEth: boolean) => {
   const buyFee = 300;
   const courseId = 1;
   const coursePrice = ethers.utils.parseEther('0.01');
+  const courseDisputePeriod = 60 * 60 * 24 * 7; // 7 days
   const courseDataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMf';
   const transactionId = 1;
 
@@ -72,7 +73,14 @@ const escrowTests = (isEth: boolean) => {
     // Alice creates a course
     await knowledgeLayerCourse
       .connect(alice)
-      .createCourse(aliceId, originPlatformId, coursePrice, tokenAddress, courseDataUri);
+      .createCourse(
+        aliceId,
+        originPlatformId,
+        coursePrice,
+        tokenAddress,
+        courseDisputePeriod,
+        courseDataUri,
+      );
 
     protocolFee = await knowledgeLayerEscrow.protocolFee();
     courseTotalPrice = coursePrice.add(

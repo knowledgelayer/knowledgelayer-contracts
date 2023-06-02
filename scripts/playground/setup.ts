@@ -3,6 +3,8 @@ import { getDeploymentAddress } from '../../.deployment/deploymentManager';
 import uploadToIPFS from '../../utils/uploadToIpfs';
 import { ETH_ADDRESS, MintStatus } from '../../utils/constants';
 
+const disputePeriod = 60 * 60 * 24 * 7; // 7 days
+
 async function main() {
   const network = hre.network.name;
   console.log('Network:', network);
@@ -44,6 +46,7 @@ async function main() {
       user: bob,
       platformId: 1,
       price: ethers.utils.parseEther('0.01'),
+      disputePeriod,
       data: {
         title: 'How to win N&W S3 and make 100K: Complete Guide',
         description:
@@ -57,6 +60,7 @@ async function main() {
       user: alice,
       platformId: 1,
       price: ethers.utils.parseEther('0.08'),
+      disputePeriod,
       data: {
         title: 'How To Create Ebooks With Chat GPT: Beginner’s Guide',
         description:
@@ -70,6 +74,7 @@ async function main() {
       user: alice,
       platformId: 1,
       price: ethers.utils.parseEther('0.027'),
+      disputePeriod,
       data: {
         title: 'Guide to become a professional meme maker',
         description:
@@ -83,6 +88,7 @@ async function main() {
       user: bob,
       platformId: 1,
       price: ethers.utils.parseEther('0.03'),
+      disputePeriod,
       data: {
         title: 'Twitter Marketing: How to Grow an Audience on Twitter Fast',
         description:
@@ -96,6 +102,7 @@ async function main() {
       user: bob,
       platformId: 1,
       price: ethers.utils.parseEther('0.05'),
+      disputePeriod,
       data: {
         title: 'Ethereum Smart Contract Engineer: Complete Course',
         description:
@@ -109,6 +116,7 @@ async function main() {
       user: bob,
       platformId: 1,
       price: ethers.utils.parseEther('0.044'),
+      disputePeriod,
       data: {
         title: 'How to build work marketplaces on TalentLayer',
         description:
@@ -121,7 +129,7 @@ async function main() {
   ];
 
   for (const course of courses) {
-    const { user, price, data, platformId } = course;
+    const { user, price, disputePeriod, data, platformId } = course;
 
     const dataUri = await uploadToIPFS(data);
     if (!dataUri) throw new Error('Failed to upload to IPFS');
@@ -130,7 +138,7 @@ async function main() {
 
     const tx = await knowledgeLayerCourse
       .connect(user)
-      .createCourse(profileId, platformId, price, ETH_ADDRESS, dataUri);
+      .createCourse(profileId, platformId, price, ETH_ADDRESS, disputePeriod, dataUri);
     await tx.wait();
   }
 

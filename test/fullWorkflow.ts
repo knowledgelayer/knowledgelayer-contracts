@@ -34,6 +34,7 @@ describe('Full Workflow', () => {
 
   const courseId = 1;
   const coursePrice = 100;
+  const courseDisputePeriod = 60 * 60 * 24 * 7; // 7 days
   const courseDataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMf';
   const reviewDataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMf';
 
@@ -65,7 +66,14 @@ describe('Full Workflow', () => {
     // Alice creates a course
     await knowledgeLayerCourse
       .connect(alice)
-      .createCourse(aliceId, carolPlatformId, coursePrice, ETH_ADDRESS, courseDataUri);
+      .createCourse(
+        aliceId,
+        carolPlatformId,
+        coursePrice,
+        ETH_ADDRESS,
+        courseDisputePeriod,
+        courseDataUri,
+      );
   });
 
   describe('Buy course', async () => {

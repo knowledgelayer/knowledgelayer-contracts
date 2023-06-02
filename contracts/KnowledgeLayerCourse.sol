@@ -16,6 +16,7 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
      * @param ownerId KnowledgeLayer ID of the teacher
      * @param platformId Platform ID where the course was created
      * @param price Price of the course
+     * @param disputePeriod Period of time for the buyer to open a dispute
      * @param dataUri URI of the course data
      */
     struct Course {
@@ -23,6 +24,7 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
         uint256 platformId;
         uint256 price;
         address token;
+        uint256 disputePeriod;
         string dataUri;
     }
 
@@ -49,13 +51,14 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
         uint256 platformId,
         uint256 price,
         address token,
+        uint256 disputePeriod,
         string dataUri
     );
 
     /**
      * @dev Emitted when the price of a course is updated
      */
-    event CourseUpdated(uint256 indexed courseId, uint256 price, address token, string dataUri);
+    event CourseUpdated(uint256 indexed courseId, uint256 price, address token, uint256 disputePeriod, string dataUri);
 
     // =========================== Modifiers ==============================
 
@@ -97,6 +100,7 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
      * @param _profileId The KnowledgeLayer ID of the user owner of the course
      * @param _price Price of the course
      * @param _token Address of the token used to pay the course
+     * @param _disputePeriod Period of time for the buyer to open a dispute
      * @param _dataUri URI of the course data
      */
     function createCourse(
@@ -104,6 +108,7 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
         uint256 _platformId,
         uint256 _price,
         address _token,
+        uint256 _disputePeriod,
         string memory _dataUri
     ) public onlyOwnerOrDelegate(_profileId) {
         uint256 id = nextCourseId.current();
@@ -112,11 +117,12 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
             platformId: _platformId,
             price: _price,
             dataUri: _dataUri,
-            token: _token
+            token: _token,
+            disputePeriod: _disputePeriod
         });
         nextCourseId.increment();
 
-        emit CourseCreated(id, _profileId, _platformId, _price, _token, _dataUri);
+        emit CourseCreated(id, _profileId, _platformId, _price, _token, _disputePeriod, _dataUri);
     }
 
     /**
@@ -125,6 +131,7 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
      * @param _courseId Id of the course
      * @param _price Price of the course
      * @param _token Address of the token used to pay the course
+     * @param _disputePeriod Period of time for the buyer to open a dispute
      * @param _dataUri URI of the course data
      */
     function updateCourse(
@@ -132,15 +139,17 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
         uint256 _courseId,
         uint256 _price,
         address _token,
+        uint256 _disputePeriod,
         string memory _dataUri
     ) public onlyOwnerOrDelegate(_profileId) {
         Course storage course = courses[_courseId];
         require(course.ownerId == _profileId, "Not the owner");
         course.price = _price;
         course.token = _token;
+        course.disputePeriod = _disputePeriod;
         course.dataUri = _dataUri;
 
-        emit CourseUpdated(_courseId, _price, _token, _dataUri);
+        emit CourseUpdated(_courseId, _price, _token, _disputePeriod, _dataUri);
     }
 
     // =========================== Escrow functions ==============================

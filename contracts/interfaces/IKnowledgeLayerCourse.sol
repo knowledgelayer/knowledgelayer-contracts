@@ -9,6 +9,7 @@ interface IKnowledgeLayerCourse is IERC1155 {
         uint256 platformId;
         uint256 price;
         address token;
+        uint256 disputePeriod;
         string dataUri;
     }
 
