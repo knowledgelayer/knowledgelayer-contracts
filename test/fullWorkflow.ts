@@ -10,7 +10,13 @@ import {
   KnowledgeLayerReview,
 } from '../typechain-types';
 import deploy from '../utils/deploy';
-import { ETH_ADDRESS, FEE_DIVIDER, MintStatus, PROTOCOL_INDEX } from '../utils/constants';
+import {
+  ETH_ADDRESS,
+  FEE_DIVIDER,
+  META_EVIDENCE_CID,
+  MintStatus,
+  PROTOCOL_INDEX,
+} from '../utils/constants';
 import { expect } from 'chai';
 
 describe('Full Workflow', () => {
@@ -90,7 +96,7 @@ describe('Full Workflow', () => {
       // Bob buys Alice's course
       tx = await knowledgeLayerEscrow
         .connect(bob)
-        .createTransaction(bobId, courseId, davePlatformId, {
+        .createTransaction(bobId, courseId, davePlatformId, META_EVIDENCE_CID, {
           value: totalPrice,
         });
       await tx.wait();

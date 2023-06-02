@@ -216,7 +216,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
 
     /**
      * @notice Check if the given address is either the owner of the delegate of the given user
-     * @param _profileId The TalentLayer ID of the user
+     * @param _profileId The KnowledgeLayer ID of the user
      */
     modifier onlyOwnerOrDelegate(uint256 _profileId) {
         require(knowledgeLayerId.isOwnerOrDelegate(_profileId, _msgSender()), "Not owner or delegate");
@@ -266,10 +266,18 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
 
     // =========================== User functions ==============================
 
+    /**
+     * @dev Buys a course by locking the cost amount into escrow.
+     * @param _profileId The KnowledgeLayer ID of the user
+     * @param _courseId Id of the course.
+     * @param _platformId Id of the platform where the course is being bought.
+     * @param _metaEvidence Link to the meta-evidence.
+     */
     function createTransaction(
         uint256 _profileId,
         uint256 _courseId,
-        uint256 _platformId
+        uint256 _platformId,
+        string memory _metaEvidence
     ) external payable returns (uint256) {
         IKnowledgeLayerCourse.Course memory course = knowledgeLayerCourse.getCourse(_courseId);
         (address sender, address receiver) = knowledgeLayerId.ownersOf(_profileId, course.ownerId);
@@ -289,6 +297,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         } else {
             require(msg.value == 0, "Non-matching funds");
         }
+        require(bytes(_metaEvidence).length == 46, "Invalid cid");
 
         uint256 id = nextTransactionId.current();
         uint256 releasableAt = block.timestamp + course.disputePeriod;
@@ -322,7 +331,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
 
         knowledgeLayerCourse.buyCourse(_profileId, _courseId);
 
-        _afterCreateTransaction(id, _profileId, course.ownerId);
+        _afterCreateTransaction(id, _profileId, course.ownerId, _metaEvidence);
 
         return id;
     }
@@ -612,7 +621,19 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
 
     // =========================== Private functions ==============================
 
-    function _afterCreateTransaction(uint256 _transactionId, uint256 _senderId, uint256 _receiverId) internal {
+    /**
+     * @notice Emits the events related to the creation of a transaction.
+     * @param _transactionId The Id of the transavtion
+     * @param _senderId The KnowledgeLayer Id of the sender
+     * @param _receiverId The KnowledgeLayer Id of the receiver
+     * @param _metaEvidence The meta evidence of the transaction
+     */
+    function _afterCreateTransaction(
+        uint256 _transactionId,
+        uint256 _senderId,
+        uint256 _receiverId,
+        string memory _metaEvidence
+    ) internal {
         Transaction storage transaction = transactions[_transactionId];
 
         emit TransactionCreated(
@@ -628,6 +649,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
             transaction.originFee,
             transaction.buyFee
         );
+        emit MetaEvidence(_transactionId, _metaEvidence);
     }
 
     /**

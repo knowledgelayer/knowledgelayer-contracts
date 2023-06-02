@@ -11,7 +11,7 @@ const platformId = 1;
 const reservedHandles = ['alice', 'bob__', 'carol'];
 
 /**
- * Deploys contracts and sets up the context for TalentLayerId contract.
+ * Deploys contracts and sets up the context for tests.
  * @returns the deployed contracts
  */
 async function deployAndSetup(): Promise<

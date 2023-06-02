@@ -1,6 +1,6 @@
 import hre, { ethers } from 'hardhat';
 import { getDeploymentAddress } from '../../.deployment/deploymentManager';
-import { FEE_DIVIDER } from '../../utils/constants';
+import { FEE_DIVIDER, META_EVIDENCE_CID } from '../../utils/constants';
 
 async function main() {
   const network = hre.network.name;
@@ -45,7 +45,7 @@ async function main() {
   const bobId = await knowledgeLayerID.ids(bob.address);
   const tx = await knowledgeLayerEscrow
     .connect(bob)
-    .createTransaction(bobId, courseId, buyPlatformId, {
+    .createTransaction(bobId, courseId, buyPlatformId, META_EVIDENCE_CID, {
       value: totalPrice,
     });
   await tx.wait();

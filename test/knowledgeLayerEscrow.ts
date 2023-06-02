@@ -11,7 +11,13 @@ import {
   KnowledgeLayerPlatformID,
 } from '../typechain-types';
 import deploy from '../utils/deploy';
-import { FEE_DIVIDER, MintStatus, PROTOCOL_INDEX, ETH_ADDRESS } from '../utils/constants';
+import {
+  FEE_DIVIDER,
+  MintStatus,
+  PROTOCOL_INDEX,
+  ETH_ADDRESS,
+  META_EVIDENCE_CID,
+} from '../utils/constants';
 
 const escrowTests = (isEth: boolean) => {
   let deployer: SignerWithAddress,
@@ -92,25 +98,31 @@ const escrowTests = (isEth: boolean) => {
   describe('Buy course', async () => {
     it("Can't buy course if not profile owner", async () => {
       await expect(
-        knowledgeLayerEscrow.connect(carol).createTransaction(bobId, courseId, buyPlatformId, {
-          value: isEth ? courseTotalPrice : 0,
-        }),
+        knowledgeLayerEscrow
+          .connect(carol)
+          .createTransaction(bobId, courseId, buyPlatformId, META_EVIDENCE_CID, {
+            value: isEth ? courseTotalPrice : 0,
+          }),
       ).to.be.revertedWith('Not the owner');
     });
 
     it("Can't buy course if not paying enough", async () => {
       if (isEth) {
         await expect(
-          knowledgeLayerEscrow.connect(bob).createTransaction(bobId, courseId, buyPlatformId, {
-            value: courseTotalPrice.sub(1),
-          }),
+          knowledgeLayerEscrow
+            .connect(bob)
+            .createTransaction(bobId, courseId, buyPlatformId, META_EVIDENCE_CID, {
+              value: courseTotalPrice.sub(1),
+            }),
         ).to.be.revertedWith('Non-matching funds');
       } else {
         // Create transaction without approving tokens
         await expect(
-          knowledgeLayerEscrow.connect(bob).createTransaction(bobId, courseId, buyPlatformId, {
-            value: 0,
-          }),
+          knowledgeLayerEscrow
+            .connect(bob)
+            .createTransaction(bobId, courseId, buyPlatformId, META_EVIDENCE_CID, {
+              value: 0,
+            }),
         ).to.be.revertedWith('ERC20: insufficient allowance');
       }
     });
@@ -131,7 +143,7 @@ const escrowTests = (isEth: boolean) => {
         // Bob buys Alice's course
         tx = await knowledgeLayerEscrow
           .connect(bob)
-          .createTransaction(bobId, courseId, buyPlatformId, {
+          .createTransaction(bobId, courseId, buyPlatformId, META_EVIDENCE_CID, {
             value: isEth ? courseTotalPrice : 0,
           });
       });

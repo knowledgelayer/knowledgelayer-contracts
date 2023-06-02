@@ -10,7 +10,7 @@ import {
   KnowledgeLayerReview,
 } from '../typechain-types';
 import deploy from '../utils/deploy';
-import { ETH_ADDRESS, FEE_DIVIDER, MintStatus } from '../utils/constants';
+import { ETH_ADDRESS, FEE_DIVIDER, META_EVIDENCE_CID, MintStatus } from '../utils/constants';
 
 describe('KnowledgeLayerReview', () => {
   let deployer: SignerWithAddress,
@@ -74,9 +74,11 @@ describe('KnowledgeLayerReview', () => {
     const totalPrice = coursePrice.add(
       coursePrice.mul(originFee + buyFee + protocolFee).div(FEE_DIVIDER),
     );
-    await knowledgeLayerEscrow.connect(bob).createTransaction(bobId, courseId, carolPlatformId, {
-      value: totalPrice,
-    });
+    await knowledgeLayerEscrow
+      .connect(bob)
+      .createTransaction(bobId, courseId, carolPlatformId, META_EVIDENCE_CID, {
+        value: totalPrice,
+      });
   });
 
   describe('Create review', async () => {

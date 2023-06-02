@@ -9,7 +9,7 @@ import {
   KnowledgeLayerEscrow,
   KnowledgeLayerReview,
 } from '../typechain-types';
-import { ETH_ADDRESS, FEE_DIVIDER, MintStatus } from '../utils/constants';
+import { ETH_ADDRESS, FEE_DIVIDER, META_EVIDENCE_CID, MintStatus } from '../utils/constants';
 import deploy from '../utils/deploy';
 import { BigNumber } from 'ethers';
 
@@ -115,9 +115,11 @@ describe('Delegation', function () {
     const protocolFee = await knowledgeLayerEscrow.protocolFee();
     const totalPrice =
       coursePrice + (coursePrice * (originFee + buyFee + protocolFee)) / FEE_DIVIDER;
-    await knowledgeLayerEscrow.connect(bob).createTransaction(bobId, courseId, carolPlatformId, {
-      value: totalPrice,
-    });
+    await knowledgeLayerEscrow
+      .connect(bob)
+      .createTransaction(bobId, courseId, carolPlatformId, META_EVIDENCE_CID, {
+        value: totalPrice,
+      });
 
     // Dave can release the payment on behalf of Alice
     await time.increase(courseDisputePeriod);

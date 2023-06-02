@@ -64,7 +64,7 @@ contract KnowledgeLayerCourse is ERC1155, AccessControl {
 
     /**
      * @notice Check if the given address is either the owner of the delegate of the given user
-     * @param _profileId The TalentLayer ID of the user
+     * @param _profileId The KnowledgeLayer ID of the user
      */
     modifier onlyOwnerOrDelegate(uint256 _profileId) {
         require(knowledgeLayerId.isOwnerOrDelegate(_profileId, _msgSender()), "Not owner or delegate");
