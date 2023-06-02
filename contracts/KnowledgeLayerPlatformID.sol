@@ -6,6 +6,8 @@ import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
+import {Arbitrator} from "./Arbitrator.sol";
+
 contract KnowledgeLayerPlatformID is ERC721, AccessControl {
     using Counters for Counters.Counter;
 
@@ -27,6 +29,8 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
      * @param buyFee the %fee (per ten thousands) asked by the platform for sales of courses purchased on the platform
      * @param postingFee the fee (flat) asked by the platform to post a course on the platform
      * @param signer address used to sign operations which need platform authorization
+     * @param arbitrator address of the arbitrator used by the platform
+     * @param arbitratorExtraData extra information for the arbitrator
      */
     struct Platform {
         uint256 id;
@@ -36,6 +40,8 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
         uint16 buyFee;
         uint256 postingFee;
         address signer;
+        Arbitrator arbitrator;
+        bytes arbitratorExtraData;
     }
 
     /**
@@ -65,6 +71,17 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
      * @notice Address to PlatformId
      */
     mapping(address => uint256) public ids;
+
+    /**
+     * @notice Addresses which are available as arbitrators
+     */
+    mapping(address => bool) public validArbitrators;
+
+    /**
+     * @notice Whether arbitrators are internal (are part of KnowledgeLayer) or not
+     *         Internal arbitrators will have the extra data set to the platform ID
+     */
+    mapping(address => bool) public internalArbitrators;
 
     /**
      * @notice Price to mint a platform id (in wei, upgradable)
@@ -137,7 +154,7 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
     event BuyFeeUpdated(uint256 platformId, uint16 buyFee);
 
     /**
-     * @notice Emit when the service posting fee is updated for a platform
+     * @notice Emit when the course posting fee is updated for a platform
      * @param platformId The Platform Id
      * @param postingFee The new fee
      */
@@ -149,6 +166,14 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
      * @param signer The new signer address
      */
     event SignerUpdated(uint256 platformId, address signer);
+
+    /**
+     * @notice Emit when the arbitrator is updated for a platform
+     * @param platformId The Platform Id
+     * @param arbitrator The address of the new arbitrator
+     * @param extraData The new extra data for the arbitrator
+     */
+    event ArbitratorUpdated(uint256 platformId, Arbitrator arbitrator, bytes extraData);
 
     /**
      * @notice Emit when the minting status is updated
@@ -197,11 +222,13 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
     constructor() ERC721("KnowledgeLayerPlatformID", "KLPID") {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(MINT_ROLE, msg.sender);
+
         mintFee = 0;
+        mintStatus = MintStatus.ONLY_WHITELIST;
+        validArbitrators[address(0)] = true; // The zero address means no arbitrator.
 
         // Increment counter to start platform ids at index 1
         nextPlatformId.increment();
-        mintStatus = MintStatus.ONLY_WHITELIST;
     }
 
     // =========================== View functions ==============================
@@ -331,8 +358,8 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
     }
 
     /**
-     * @notice Allows a platform to update the service posting fee for the platform
-     * @param _platformId The platform Id of the platform
+     * @notice Allows a platform to update the course posting fee for the platform
+     * @param _platformId The platform Id
      * @param postingFee The new fee
      */
     function updatePostingFee(uint256 _platformId, uint256 postingFee) public onlyPlatformOwner(_platformId) {
@@ -342,12 +369,36 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
 
     /**
      * @notice Allows a platform to update its signer address
-     * @param _platformId The platform Id of the platform
+     * @param _platformId The platform Id
      * @param _signer The new signer address
      */
     function updateSigner(uint256 _platformId, address _signer) public onlyPlatformOwner(_platformId) {
         platforms[_platformId].signer = _signer;
         emit SignerUpdated(_platformId, _signer);
+    }
+
+    /**
+     * @notice Allows a platform to update its arbitrator
+     * @param _platformId The platform Id
+     * @param _arbitrator The arbitrator address
+     * @param _extraData The extra data for the arbitrator (this is only used for external arbitrators, for internal arbitrators it should be empty)
+     */
+    function updateArbitrator(
+        uint256 _platformId,
+        Arbitrator _arbitrator,
+        bytes memory _extraData
+    ) public onlyPlatformOwner(_platformId) {
+        require(validArbitrators[address(_arbitrator)], "The address must be of a valid arbitrator");
+
+        platforms[_platformId].arbitrator = _arbitrator;
+
+        if (internalArbitrators[address(_arbitrator)]) {
+            platforms[_platformId].arbitratorExtraData = abi.encodePacked(_platformId);
+        } else {
+            platforms[_platformId].arbitratorExtraData = _extraData;
+        }
+
+        emit ArbitratorUpdated(_platformId, _arbitrator, platforms[_platformId].arbitratorExtraData);
     }
 
     // =========================== Owner functions ==============================
@@ -377,6 +428,27 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
     function updateMintFee(uint256 _mintFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
         mintFee = _mintFee;
         emit MintFeeUpdated(_mintFee);
+    }
+
+    /**
+     * @notice Adds a new available arbitrator.
+     * @param _arbitrator address of the arbitrator
+     * @param _isInternal whether the arbitrator is internal (is part of KnowledgeLayer) or not
+     * @dev You need to have DEFAULT_ADMIN_ROLE to use this function
+     */
+    function addArbitrator(address _arbitrator, bool _isInternal) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        validArbitrators[address(_arbitrator)] = true;
+        internalArbitrators[address(_arbitrator)] = _isInternal;
+    }
+
+    /**
+     * @notice Removes an available arbitrator.
+     * @param _arbitrator address of the arbitrator
+     * @dev You need to have DEFAULT_ADMIN_ROLE to use this function
+     */
+    function removeArbitrator(address _arbitrator) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        validArbitrators[address(_arbitrator)] = false;
+        internalArbitrators[address(_arbitrator)] = false;
     }
 
     /**

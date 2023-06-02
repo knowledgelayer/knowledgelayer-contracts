@@ -112,4 +112,7 @@ task('deploy', 'Deploy all contracts')
       'KnowledgeLayerArbitrator',
       knowledgeLayerArbitrator.address,
     );
+
+    // Add KnowledgeLayerArbitrator to available arbitrators
+    await knowledgeLayerPlatformID.addArbitrator(knowledgeLayerArbitrator.address, true);
   });

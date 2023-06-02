@@ -2,7 +2,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { BigNumber, ContractTransaction } from 'ethers';
 import { ethers } from 'hardhat';
-import { KnowledgeLayerPlatformID } from '../typechain-types';
+import { KnowledgeLayerArbitrator, KnowledgeLayerPlatformID } from '../typechain-types';
 import deploy from '../utils/deploy';
 import { MintStatus } from '../utils/constants';
 
@@ -13,14 +13,16 @@ describe('KnowledgeLayerPlatformID', () => {
     carol: SignerWithAddress,
     dave: SignerWithAddress,
     frank: SignerWithAddress,
+    externalArbitrator: SignerWithAddress,
     alicePlatformId: BigNumber,
-    knowledgeLayerPlatformID: KnowledgeLayerPlatformID;
+    knowledgeLayerPlatformID: KnowledgeLayerPlatformID,
+    knowledgeLayerArbitrator: KnowledgeLayerArbitrator;
 
   const platformName = 'alice-platform';
 
   before(async () => {
-    [deployer, alice, bob, carol, dave, , frank] = await ethers.getSigners();
-    [, knowledgeLayerPlatformID] = await deploy();
+    [deployer, alice, bob, carol, dave, , frank, externalArbitrator] = await ethers.getSigners();
+    [, knowledgeLayerPlatformID, , , , knowledgeLayerArbitrator] = await deploy();
   });
 
   describe('Mint platform profile', async () => {
@@ -308,6 +310,83 @@ describe('KnowledgeLayerPlatformID', () => {
 
       const signer = await knowledgeLayerPlatformID.getSigner(alicePlatformId);
       expect(signer).to.equal(carol.address);
+    });
+  });
+
+  describe('Add arbitrator', async () => {
+    it('The owner can add an arbitrator', async () => {
+      await knowledgeLayerPlatformID
+        .connect(deployer)
+        .addArbitrator(knowledgeLayerArbitrator.address, true);
+      const isValid = await knowledgeLayerPlatformID.validArbitrators(
+        knowledgeLayerArbitrator.address,
+      );
+      expect(isValid).to.be.true;
+
+      const isInternal = await knowledgeLayerPlatformID.internalArbitrators(
+        knowledgeLayerArbitrator.address,
+      );
+      expect(isInternal).to.be.true;
+    });
+  });
+
+  describe('Update arbitrator', async () => {
+    it("Can't update arbitrator if not is not valid", async () => {
+      const tx = knowledgeLayerPlatformID
+        .connect(alice)
+        .updateArbitrator(alicePlatformId, dave.address, []);
+      await expect(tx).to.be.revertedWith('The address must be of a valid arbitrator');
+    });
+
+    it('The platform owner can update to a valid internal arbitrator', async function () {
+      await knowledgeLayerPlatformID
+        .connect(alice)
+        .updateArbitrator(alicePlatformId, knowledgeLayerArbitrator.address, []);
+      const arbitrator = (await knowledgeLayerPlatformID.getPlatform(alicePlatformId)).arbitrator;
+      expect(arbitrator).to.be.equal(knowledgeLayerArbitrator.address);
+
+      // Extra data is updated and is equal to the platform id since the arbitrator is internal
+      const arbitratorExtraData = (await knowledgeLayerPlatformID.getPlatform(alicePlatformId))
+        .arbitratorExtraData;
+      const platformId = BigNumber.from(arbitratorExtraData);
+      expect(platformId).to.be.equal(alicePlatformId);
+    });
+
+    it('The platform owner can update to a valid external arbitrator', async function () {
+      // Owners adds external arbitrator to valid arbitrators
+      await knowledgeLayerPlatformID
+        .connect(deployer)
+        .addArbitrator(externalArbitrator.address, false);
+
+      const newArbitratorExtraData = '0x01020304';
+      await knowledgeLayerPlatformID
+        .connect(alice)
+        .updateArbitrator(alicePlatformId, externalArbitrator.address, newArbitratorExtraData);
+
+      const arbitrator = (await knowledgeLayerPlatformID.getPlatform(alicePlatformId)).arbitrator;
+      expect(arbitrator).to.be.equal(externalArbitrator.address);
+
+      // Extra data is updated and is equal to the passed extra data
+      const arbitratorExtraData = (await knowledgeLayerPlatformID.getPlatform(alicePlatformId))
+        .arbitratorExtraData;
+      expect(arbitratorExtraData).to.be.equal(newArbitratorExtraData);
+    });
+  });
+
+  describe('Remove arbitrator', async () => {
+    it('The owner can remove an arbitrator', async function () {
+      await knowledgeLayerPlatformID
+        .connect(deployer)
+        .removeArbitrator(knowledgeLayerArbitrator.address);
+      const isValid = await knowledgeLayerPlatformID.validArbitrators(
+        knowledgeLayerArbitrator.address,
+      );
+      expect(isValid).to.be.false;
+
+      const isInternal = await knowledgeLayerPlatformID.internalArbitrators(
+        knowledgeLayerArbitrator.address,
+      );
+      expect(isInternal).to.be.false;
     });
   });
 
