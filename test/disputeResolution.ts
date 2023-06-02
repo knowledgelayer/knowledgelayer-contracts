@@ -321,7 +321,8 @@ describe.only('Dispute Resolution, standard flow', () => {
       it('The transaction data is updated correctly', async () => {
         const transaction = await knowledgeLayerEscrow.connect(alice).getTransaction(transactionId);
 
-        // Fee paid by receiver is updated correctly
+        // Fee paid by sender and receiver is updated correctly
+        expect(transaction.senderFee).to.be.eq(newArbitrationCost);
         expect(transaction.receiverFee).to.be.eq(newArbitrationCost);
 
         // Timestamp of last interaction is udpated correctly
@@ -428,12 +429,14 @@ describe.only('Dispute Resolution, standard flow', () => {
         );
       });
 
-      it('The status of the transaction becomes "Resolved"', async function () {
+      it('The transaction data is updated correctly', async function () {
         const transaction = await knowledgeLayerEscrow.connect(bob).getTransaction(transactionId);
         expect(transaction.status).to.be.eq(TransactionStatus.Resolved);
+        expect(transaction.senderFee).to.be.eq(0);
+        expect(transaction.receiverFee).to.be.eq(newArbitrationCost);
       });
 
-      it('Dispute data is updated', async function () {
+      it('Dispute data is updated correctly', async function () {
         const status = await knowledgeLayerArbitrator.disputeStatus(disputeId);
         const ruling = await knowledgeLayerArbitrator.currentRuling(disputeId);
         expect(status).to.be.eq(DisputeStatus.Solved);
@@ -450,6 +453,20 @@ describe.only('Dispute Resolution, standard flow', () => {
         const tx = knowledgeLayerArbitrator.connect(carol).giveRuling(disputeId, rulingId);
         await expect(tx).to.be.revertedWith('The dispute must not be solved already.');
       });
+    });
+  });
+
+  describe('Appealing a ruling', async function () {
+    it('Fails if the transaction does not have an arbitrator set', async function () {
+      const tx = knowledgeLayerEscrow.connect(bob).appeal(0);
+      await expect(tx).to.be.revertedWith('Arbitrator not set');
+    });
+
+    it('Fails because cost is too high', async function () {
+      const tx = knowledgeLayerEscrow.connect(bob).appeal(transactionId, {
+        value: ethers.utils.parseEther('100'),
+      });
+      await expect(tx).to.be.revertedWith('Not enough ETH to cover appeal costs.');
     });
   });
 });

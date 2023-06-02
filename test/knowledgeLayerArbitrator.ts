@@ -6,12 +6,13 @@ import { KnowledgeLayerArbitrator, KnowledgeLayerPlatformID } from '../typechain
 import { deploy } from '../utils/deploy';
 import { DisputeStatus } from '../utils/constants';
 
-describe('KnowledgeLayerArbitrator', () => {
+describe.only('KnowledgeLayerArbitrator', () => {
   let deployer: SignerWithAddress,
     alice: SignerWithAddress,
     bob: SignerWithAddress,
     arbitrableContract: SignerWithAddress,
     alicePlatformId: BigNumber,
+    extraData: string,
     knowledgeLayerPlatformID: KnowledgeLayerPlatformID,
     knowledgeLayerArbitrator: KnowledgeLayerArbitrator;
 
@@ -26,6 +27,8 @@ describe('KnowledgeLayerArbitrator', () => {
     await knowledgeLayerPlatformID.connect(deployer).whitelistUser(alice.address);
     await knowledgeLayerPlatformID.connect(alice).mint('alice-platform');
     alicePlatformId = await knowledgeLayerPlatformID.connect(alice).ids(alice.address);
+
+    extraData = ethers.utils.hexZeroPad(ethers.utils.hexlify(alicePlatformId), 32);
   });
 
   describe('Set arbitration price', async () => {
@@ -50,10 +53,8 @@ describe('KnowledgeLayerArbitrator', () => {
 
   describe('Create dispute', async () => {
     let arbitrationCost: BigNumber;
-    let extraData: string;
 
     before(async () => {
-      extraData = ethers.utils.hexZeroPad(ethers.utils.hexlify(alicePlatformId), 32);
       arbitrationCost = await knowledgeLayerArbitrator.arbitrationCost(extraData);
     });
 
@@ -107,6 +108,15 @@ describe('KnowledgeLayerArbitrator', () => {
     it("Can't give an invalid ruling", async () => {
       const tx = knowledgeLayerArbitrator.connect(alice).giveRuling(disputeId, choices + 1);
       await expect(tx).to.be.revertedWith('Invalid ruling.');
+    });
+  });
+
+  describe('Appeal ruling', async function () {
+    it('Fails because cost is too high', async function () {
+      const tx = knowledgeLayerArbitrator.connect(bob).appeal(disputeId, extraData, {
+        value: ethers.utils.parseEther('100'),
+      });
+      await expect(tx).to.be.revertedWith('Not enough ETH to cover appeal costs.');
     });
   });
 });
