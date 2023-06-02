@@ -472,6 +472,20 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         emit EvidenceSubmitted(_transactionId, _profileId, _evidence);
     }
 
+    /**
+     * @notice Appeals an appealable ruling, paying the appeal fee to the arbitrator.
+     * Note that no checks are required as the checks are done by the arbitrator.
+     *
+     * @param _transactionId Id of the transaction.
+     */
+    function appeal(uint256 _transactionId) public payable {
+        Transaction storage transaction = transactions[_transactionId];
+
+        require(address(transaction.arbitrator) != address(0), "Arbitrator not set");
+
+        transaction.arbitrator.appeal{value: msg.value}(transaction.disputeId, transaction.arbitratorExtraData);
+    }
+
     // =========================== Platform functions ==============================
 
     /**
