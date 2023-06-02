@@ -199,6 +199,12 @@ const escrowTests = (isEth: boolean) => {
       ).to.be.revertedWith('Not the receiver');
     });
 
+    it("Can't release funds if not dispute period is not over", async () => {
+      await expect(
+        knowledgeLayerEscrow.connect(alice).release(aliceId, transactionId),
+      ).to.be.revertedWith('Not yet releasable');
+    });
+
     describe('Receiver can release funds', async () => {
       let tx: ContractTransaction;
 
