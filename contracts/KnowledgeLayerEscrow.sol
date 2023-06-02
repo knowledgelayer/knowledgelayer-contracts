@@ -460,7 +460,18 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
      * @param _disputeID The ID of the dispute in the Arbitrator contract.
      * @param _ruling Ruling given by the arbitrator. Note that 0 is reserved for "Not able/wanting to make a decision".
      */
-    function rule(uint256 _disputeID, uint256 _ruling) public {}
+    function rule(uint256 _disputeID, uint256 _ruling) public {
+        address sender = _msgSender();
+        uint256 transactionId = disputeIDtoTransactionID[_disputeID];
+        Transaction storage transaction = transactions[transactionId];
+
+        require(sender == address(transaction.arbitrator), "The caller must be the arbitrator");
+        require(transaction.status == TransactionStatus.DisputeCreated, "The dispute has already been resolved");
+
+        emit Ruling(Arbitrator(sender), _disputeID, _ruling);
+
+        _executeRuling(transactionId, _ruling);
+    }
 
     // =========================== Owner functions ==============================
 
