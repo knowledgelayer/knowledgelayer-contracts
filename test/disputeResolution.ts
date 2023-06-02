@@ -359,4 +359,11 @@ describe.only('Dispute Resolution, standard flow', () => {
       });
     });
   });
+
+  describe('Attempt to release after a dispute', async function () {
+    it('Release fails since ther must be no dispute to release', async function () {
+      const tx = knowledgeLayerEscrow.connect(alice).release(aliceId, transactionId);
+      await expect(tx).to.be.revertedWith('Transaction is in dispute');
+    });
+  });
 });
