@@ -1,3 +1,4 @@
+import { time } from '@nomicfoundation/hardhat-network-helpers';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { BigNumber, ContractTransaction, Wallet } from 'ethers';
@@ -203,6 +204,7 @@ const escrowTests = (isEth: boolean) => {
 
       before(async () => {
         // Alice claims the funds
+        await time.increase(courseDisputePeriod);
         tx = await knowledgeLayerEscrow.connect(alice).release(aliceId, transactionId);
         await tx.wait();
       });

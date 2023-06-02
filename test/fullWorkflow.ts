@@ -1,3 +1,4 @@
+import { time } from '@nomicfoundation/hardhat-network-helpers';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { ContractTransaction } from 'ethers';
 import { ethers } from 'hardhat';
@@ -113,6 +114,7 @@ describe('Full Workflow', () => {
 
     before(async () => {
       // Alice claims the funds
+      await time.increase(courseDisputePeriod);
       tx = await knowledgeLayerEscrow.connect(alice).release(aliceId, transactionId);
       await tx.wait();
     });

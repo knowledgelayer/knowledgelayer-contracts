@@ -1,3 +1,4 @@
+import { time } from '@nomicfoundation/hardhat-network-helpers';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
@@ -119,6 +120,7 @@ describe('Delegation', function () {
     });
 
     // Dave can release the payment on behalf of Alice
+    await time.increase(courseDisputePeriod);
     await knowledgeLayerEscrow.connect(dave).release(aliceId, transactionId);
   });
 

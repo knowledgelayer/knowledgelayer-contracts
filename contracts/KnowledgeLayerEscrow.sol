@@ -31,6 +31,7 @@ contract KnowledgeLayerEscrow is Ownable {
      * @param amount The amount of the transaction EXCLUDING FEES
      * @param courseId The ID of the associated course
      * @param buyPlatformId The ID of the platform where the course is being bought
+     * @param releasableAt The timestamp when the funds can be released to the receiver
      * @param protocolFee The % fee (per ten thousands) to be paid to the protocol
      * @param originFee The % fee (per ten thousands) to be paid to the platform where the course was created
      * @param buyFee The % fee (per ten thousands) to be paid to the platform where the course is being bought
@@ -43,6 +44,7 @@ contract KnowledgeLayerEscrow is Ownable {
         uint256 amount;
         uint256 courseId;
         uint256 buyPlatformId;
+        uint256 releasableAt;
         uint16 protocolFee;
         uint16 originFee;
         uint16 buyFee;
@@ -91,6 +93,7 @@ contract KnowledgeLayerEscrow is Ownable {
         uint256 amount,
         uint256 courseId,
         uint256 buyPlatformId,
+        uint256 releasableAt,
         uint16 protocolFee,
         uint16 originFee,
         uint16 buyFee
@@ -195,6 +198,7 @@ contract KnowledgeLayerEscrow is Ownable {
         }
 
         uint256 id = nextTransactionId.current();
+        uint256 releasableAt = block.timestamp + course.disputePeriod;
 
         nextTransactionId.increment();
         transactions[id] = Transaction({
@@ -205,6 +209,7 @@ contract KnowledgeLayerEscrow is Ownable {
             amount: course.price,
             courseId: _courseId,
             buyPlatformId: _platformId,
+            releasableAt: releasableAt,
             protocolFee: protocolFee,
             originFee: originPlatform.originFee,
             buyFee: buyPlatform.buyFee
@@ -216,18 +221,7 @@ contract KnowledgeLayerEscrow is Ownable {
 
         knowledgeLayerCourse.buyCourse(_profileId, _courseId);
 
-        emit TransactionCreated(
-            id,
-            _profileId,
-            course.ownerId,
-            course.token,
-            course.price,
-            _courseId,
-            _platformId,
-            protocolFee,
-            originPlatform.originFee,
-            buyPlatform.buyFee
-        );
+        _afterCreateTransaction(id, _profileId, course.ownerId);
 
         return id;
     }
@@ -237,6 +231,7 @@ contract KnowledgeLayerEscrow is Ownable {
         Transaction memory transaction = transactions[_transactionId];
 
         require(transaction.receiver == knowledgeLayerId.ownerOf(_profileId), "Not the receiver");
+        require(block.timestamp >= transaction.releasableAt, "Not yet releasable");
 
         _distributeFees(_transactionId);
 
@@ -291,6 +286,24 @@ contract KnowledgeLayerEscrow is Ownable {
     }
 
     // =========================== Private functions ==============================
+
+    function _afterCreateTransaction(uint256 _transactionId, uint256 _senderId, uint256 _receiverId) internal {
+        Transaction storage transaction = transactions[_transactionId];
+
+        emit TransactionCreated(
+            _transactionId,
+            _senderId,
+            _receiverId,
+            transaction.token,
+            transaction.amount,
+            transaction.courseId,
+            transaction.buyPlatformId,
+            transaction.releasableAt,
+            transaction.protocolFee,
+            transaction.originFee,
+            transaction.buyFee
+        );
+    }
 
     function _getAmountWithFees(
         uint256 _amount,

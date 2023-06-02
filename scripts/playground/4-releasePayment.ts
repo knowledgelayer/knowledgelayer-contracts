@@ -1,3 +1,4 @@
+import { time } from '@nomicfoundation/hardhat-network-helpers';
 import hre, { ethers } from 'hardhat';
 import { getDeploymentAddress } from '../../.deployment/deploymentManager';
 
@@ -20,7 +21,10 @@ async function main() {
 
   // Buy course
   const transactionId = 1;
+  const courseDisputePeriod = 60 * 60 * 24 * 7; // 7 days
   const aliceId = await knowledgeLayerID.connect(alice).ids(alice.address);
+
+  await time.increase(courseDisputePeriod);
   const tx = await knowledgeLayerEscrow.connect(alice).release(aliceId, transactionId);
   await tx.wait();
 
