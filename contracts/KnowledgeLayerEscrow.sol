@@ -66,6 +66,8 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
      * @param buyFee The % fee (per ten thousands) to be paid to the platform where the course is being bought
      * @param status The status of the transaction
      * @param arbitrator The arbitrator of the transaction (address that can rule on disputes)
+     * @param arbitratorExtraData Extra data to set up the arbitration.
+     * @param arbitrationFeeTimeout Timeout for parties to pay the arbitration fee
      * @param disputeId The ID of the dispute, if it exists
      * @param senderFee Total fees paid by the sender for the dispute.
      * @param receiverFee Total fees paid by the receiver for the dispute.
@@ -86,6 +88,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         TransactionStatus status;
         Arbitrator arbitrator;
         bytes arbitratorExtraData;
+        uint256 arbitrationFeeTimeout;
         uint256 disputeId;
         uint256 senderFee;
         uint256 receiverFee;
@@ -100,6 +103,12 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
 
     // Amount of choices available for ruling the disputes
     uint8 constant AMOUNT_OF_CHOICES = 2;
+
+    // Ruling id for sender winning the dispute
+    uint8 constant SENDER_WINS = 1;
+
+    // Ruling id for receiver winning the dispute
+    uint8 constant RECEIVER_WINS = 2;
 
     // Transaction id to transaction
     mapping(uint256 => Transaction) private transactions;
@@ -155,7 +164,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
     /**
      * @dev Emitted when a payment is made for a transaction
      */
-    event Payment(uint256 transactionId, PaymentType paymentType);
+    event Payment(uint256 transactionId, PaymentType paymentType, uint256 amount);
 
     /**
      * @dev Emitted when an origin fee is released to a platform's balance
@@ -173,6 +182,13 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
      * @param _party The party who has to pay.
      */
     event HasToPayFee(uint256 indexed _transactionId, Party _party);
+
+    /**
+     * @dev Emitted when a ruling is executed.
+     * @param _transactionId The id of the transaction.
+     * @param _ruling The given ruling.
+     */
+    event RulingExecuted(uint256 indexed _transactionId, uint256 _ruling);
 
     /**
      * @dev Emitted when a party either pays the arbitration fee or gets it reimbursed.
@@ -285,6 +301,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
             status: TransactionStatus.NoDispute,
             arbitrator: originPlatform.arbitrator,
             arbitratorExtraData: originPlatform.arbitratorExtraData,
+            arbitrationFeeTimeout: originPlatform.arbitrationFeeTimeout,
             disputeId: 0,
             senderFee: 0,
             receiverFee: 0,
@@ -302,6 +319,11 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         return id;
     }
 
+    /**
+     * @notice Allows the receiver to release the transaction value locked in the escrow.
+     * @param _profileId The KnowledgeLayer ID of the user
+     * @param _transactionId Id of the transaction.
+     */
     function release(uint256 _profileId, uint256 _transactionId) public onlyOwnerOrDelegate(_profileId) {
         require(_transactionId < nextTransactionId.current(), "Invalid transaction id");
         Transaction memory transaction = transactions[_transactionId];
@@ -310,11 +332,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         require(transaction.status == TransactionStatus.NoDispute, "Transaction is in dispute");
         require(block.timestamp >= transaction.releasableAt, "Not yet releasable");
 
-        _distributeFees(_transactionId);
-
-        _transferBalance(transaction.receiver, transaction.token, transaction.amount);
-
-        emit Payment(_transactionId, PaymentType.Release);
+        _release(_transactionId, transaction.amount);
     }
 
     /**
@@ -378,6 +396,35 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         } else {
             // The sender has also paid the fee. Create the dispute.
             _raiseDispute(_transactionId, arbitrationCost);
+        }
+    }
+
+    /**
+     * @notice If one party fails to pay the arbitration fee in time, the other can call this function and will win the case
+     * @param _transactionId Id of the transaction.
+     */
+    function arbitrationFeeTimeout(uint256 _transactionId) public {
+        Transaction storage transaction = transactions[_transactionId];
+
+        require(
+            block.timestamp - transaction.lastInteraction >= transaction.arbitrationFeeTimeout,
+            "Timeout time has not passed yet"
+        );
+
+        if (transaction.status == TransactionStatus.WaitingSender) {
+            if (transaction.senderFee != 0) {
+                uint256 senderFee = transaction.senderFee;
+                transaction.senderFee = 0;
+                payable(transaction.sender).call{value: senderFee}("");
+            }
+            _executeRuling(_transactionId, RECEIVER_WINS);
+        } else if (transaction.status == TransactionStatus.WaitingReceiver) {
+            if (transaction.receiverFee != 0) {
+                uint256 receiverFee = transaction.receiverFee;
+                transaction.receiverFee = 0;
+                payable(transaction.receiver).call{value: receiverFee}("");
+            }
+            _executeRuling(_transactionId, SENDER_WINS);
         }
     }
 
@@ -472,6 +519,51 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         }
     }
 
+    /**
+     * @notice Executes a ruling of a dispute. Sends the funds and reimburses the arbitration fee to the winning party.
+     * @param _transactionId Id of the transaction.
+     * @param _ruling Ruling given by the arbitrator.
+     *                0: Refused to rule, split amount equally between sender and receiver.
+     *                1: Reimburse the sender
+     *                2: Pay the receiver
+     */
+    function _executeRuling(uint256 _transactionId, uint256 _ruling) internal {
+        Transaction storage transaction = transactions[_transactionId];
+        require(_ruling <= AMOUNT_OF_CHOICES, "Invalid ruling");
+
+        address payable sender = payable(transaction.sender);
+        address payable receiver = payable(transaction.receiver);
+        uint256 amount = transaction.amount;
+        uint256 senderFee = transaction.senderFee;
+        uint256 receiverFee = transaction.receiverFee;
+
+        transaction.amount = 0;
+        transaction.senderFee = 0;
+        transaction.receiverFee = 0;
+        transaction.status = TransactionStatus.Resolved;
+
+        // Send the funds to the winner and reimburse the arbitration fee.
+        if (_ruling == SENDER_WINS) {
+            sender.call{value: senderFee}("");
+            _reimburse(_transactionId, amount);
+        } else if (_ruling == RECEIVER_WINS) {
+            receiver.call{value: receiverFee}("");
+            _release(_transactionId, amount);
+        } else {
+            // If no ruling is given split funds in half
+            uint256 splitFeeAmount = senderFee / 2;
+            uint256 splitTransactionAmount = amount / 2;
+
+            _reimburse(_transactionId, splitTransactionAmount);
+            _release(_transactionId, splitTransactionAmount);
+
+            sender.call{value: splitFeeAmount}("");
+            receiver.call{value: splitFeeAmount}("");
+        }
+
+        emit RulingExecuted(_transactionId, _ruling);
+    }
+
     // =========================== Private functions ==============================
 
     function _afterCreateTransaction(uint256 _transactionId, uint256 _senderId, uint256 _receiverId) internal {
@@ -492,6 +584,35 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         );
     }
 
+    /**
+     * @notice Used to release part of the transaction amount to the receiver.
+     * @dev The release of an amount will also trigger the release of the fees to the platform's balances & the protocol fees.
+     * @param _transactionId The transaction id
+     * @param _amount The amount to release
+     */
+    function _release(uint256 _transactionId, uint256 _amount) private {
+        _distributeFees(_transactionId, _amount);
+
+        Transaction storage transaction = transactions[_transactionId];
+        _transferBalance(transaction.receiver, transaction.token, _amount);
+
+        emit Payment(_transactionId, PaymentType.Release, _amount);
+    }
+
+    /**
+     * @notice Used to reimburse part of the transaction amount to the sender.
+     * @dev Fees linked to the amount reimbursed will be automatically calculated and sent back to the sender in the same transfer
+     * @param _transactionId The transaction id
+     * @param _amount The amount to reimburse without fees
+     */
+    function _reimburse(uint256 _transactionId, uint256 _amount) private {
+        Transaction storage transaction = transactions[_transactionId];
+        uint256 totalReimburseAmount = _getAmountWithFees(_amount, transaction.originFee, transaction.buyFee);
+        _transferBalance(transaction.sender, transaction.token, totalReimburseAmount);
+
+        emit Payment(_transactionId, PaymentType.Reimburse, _amount);
+    }
+
     function _getAmountWithFees(
         uint256 _amount,
         uint16 _originFee,
@@ -500,13 +621,13 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         return _amount + ((_amount * (protocolFee + _originFee + _buyFee)) / FEE_DIVIDER);
     }
 
-    function _distributeFees(uint256 _transactionId) private {
+    function _distributeFees(uint256 _transactionId, uint256 _releasedAmount) private {
         Transaction storage transaction = transactions[_transactionId];
         IKnowledgeLayerCourse.Course memory course = knowledgeLayerCourse.getCourse(transaction.courseId);
 
-        uint256 protocolFeeAmount = (transaction.protocolFee * transaction.amount) / FEE_DIVIDER;
-        uint256 originFeeAmount = (transaction.originFee * transaction.amount) / FEE_DIVIDER;
-        uint256 buyFeeAmount = (transaction.buyFee * transaction.amount) / FEE_DIVIDER;
+        uint256 protocolFeeAmount = (transaction.protocolFee * _releasedAmount) / FEE_DIVIDER;
+        uint256 originFeeAmount = (transaction.originFee * _releasedAmount) / FEE_DIVIDER;
+        uint256 buyFeeAmount = (transaction.buyFee * _releasedAmount) / FEE_DIVIDER;
 
         platformBalance[PROTOCOL_INDEX][transaction.token] += protocolFeeAmount;
         platformBalance[course.platformId][transaction.token] += originFeeAmount;
