@@ -390,6 +390,43 @@ describe('KnowledgeLayerPlatformID', () => {
     });
   });
 
+  describe('Update arbitration fee timeout', async () => {
+    it("Can't update arbitration fee timeout if less than minimum", async () => {
+      const minArbitrationFeeTimeout = await knowledgeLayerPlatformID.minArbitrationFeeTimeout();
+      const tx = knowledgeLayerPlatformID
+        .connect(alice)
+        .updateArbitrationFeeTimeout(alicePlatformId, minArbitrationFeeTimeout.sub(1));
+      await expect(tx).to.be.revertedWith('The timeout must be greater than the minimum timeout');
+    });
+
+    it('The platform owner can update the arbitration fee timeout', async function () {
+      const minArbitrationFeeTimeout = await knowledgeLayerPlatformID.minArbitrationFeeTimeout();
+      const arbitrationFeeTimeout = minArbitrationFeeTimeout.add(3600 * 2);
+
+      await knowledgeLayerPlatformID
+        .connect(alice)
+        .updateArbitrationFeeTimeout(1, arbitrationFeeTimeout);
+
+      const updatedArbitrationFeeTimeout = (
+        await knowledgeLayerPlatformID.getPlatform(alicePlatformId)
+      ).arbitrationFeeTimeout;
+      expect(updatedArbitrationFeeTimeout).to.be.equal(arbitrationFeeTimeout);
+    });
+  });
+
+  describe('Update minimmum arbitration fee timeout', async () => {
+    it('The owner can update the minimum arbitration fee timeout', async function () {
+      const minArbitrationFeeTimeout = 3600 * 10;
+      await knowledgeLayerPlatformID
+        .connect(deployer)
+        .updateMinArbitrationFeeTimeout(minArbitrationFeeTimeout);
+
+      const updatedMinArbitrationFeeTimeout =
+        await knowledgeLayerPlatformID.minArbitrationFeeTimeout();
+      expect(updatedMinArbitrationFeeTimeout).to.be.equal(minArbitrationFeeTimeout);
+    });
+  });
+
   describe('Token transfers', async () => {
     it("Tokens can't be transferred", async () => {
       await expect(

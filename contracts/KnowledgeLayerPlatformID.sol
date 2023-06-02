@@ -31,6 +31,7 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
      * @param signer address used to sign operations which need platform authorization
      * @param arbitrator address of the arbitrator used by the platform
      * @param arbitratorExtraData extra information for the arbitrator
+     * @param arbitrationFeeTimeout timeout for seller to pay the arbitration fee
      */
     struct Platform {
         uint256 id;
@@ -42,6 +43,7 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
         address signer;
         Arbitrator arbitrator;
         bytes arbitratorExtraData;
+        uint256 arbitrationFeeTimeout;
     }
 
     /**
@@ -89,6 +91,11 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
     uint256 public mintFee;
 
     /**
+     * @notice Minimum timeout to pay arbitration fee
+     */
+    uint256 public minArbitrationFeeTimeout;
+
+    /**
      * @notice Platform Id counter
      */
     Counters.Counter private nextPlatformId;
@@ -123,8 +130,15 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
      * @param platformId The Platform ID
      * @param platformName Name of the platform
      * @param fee Fee paid to mint the Platform ID
+     * @param arbitrationFeeTimeout Timeout to pay arbitration fee
      */
-    event Mint(address indexed platformOwnerAddress, uint256 platformId, string platformName, uint256 fee);
+    event Mint(
+        address indexed platformOwnerAddress,
+        uint256 platformId,
+        string platformName,
+        uint256 fee,
+        uint256 arbitrationFeeTimeout
+    );
 
     /**
      * @notice Emit when Cid is updated for a platform.
@@ -176,10 +190,23 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
     event ArbitratorUpdated(uint256 platformId, Arbitrator arbitrator, bytes extraData);
 
     /**
+     * @notice Emit when the arbitration fee timeout is updated for a platform
+     * @param platformId The Platform Id
+     * @param arbitrationFeeTimeout The new arbitration fee timeout
+     */
+    event ArbitrationFeeTimeoutUpdated(uint256 platformId, uint256 arbitrationFeeTimeout);
+
+    /**
      * @notice Emit when the minting status is updated
      * @param mintStatus The new mint status
      */
     event MintStatusUpdated(MintStatus mintStatus);
+
+    /**
+     * @notice Emit when the minimum arbitration fee timeout is updated
+     * @param minArbitrationFeeTimeout The new arbitration fee timeout
+     */
+    event MinArbitrationFeeTimeoutUpdated(uint256 minArbitrationFeeTimeout);
 
     /**
      * @notice Emit when a platform is whitelisted
@@ -226,6 +253,7 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
         mintFee = 0;
         mintStatus = MintStatus.ONLY_WHITELIST;
         validArbitrators[address(0)] = true; // The zero address means no arbitrator.
+        updateMinArbitrationFeeTimeout(3 days);
 
         // Increment counter to start platform ids at index 1
         nextPlatformId.increment();
@@ -401,6 +429,24 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
         emit ArbitratorUpdated(_platformId, _arbitrator, platforms[_platformId].arbitratorExtraData);
     }
 
+    /**
+     * @notice Allows a platform to update the timeout for paying the arbitration fee
+     * @param _platformId The Platform Id
+     * @param _arbitrationFeeTimeout The new timeout
+     */
+    function updateArbitrationFeeTimeout(
+        uint256 _platformId,
+        uint256 _arbitrationFeeTimeout
+    ) public onlyPlatformOwner(_platformId) {
+        require(
+            _arbitrationFeeTimeout >= minArbitrationFeeTimeout,
+            "The timeout must be greater than the minimum timeout"
+        );
+
+        platforms[_platformId].arbitrationFeeTimeout = _arbitrationFeeTimeout;
+        emit ArbitrationFeeTimeoutUpdated(_platformId, _arbitrationFeeTimeout);
+    }
+
     // =========================== Owner functions ==============================
 
     /**
@@ -452,6 +498,16 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
     }
 
     /**
+     * @notice Updates the minimum timeout for paying the arbitration fee.
+     * @param _minArbitrationFeeTimeout The new minimum timeout
+     * @dev You need to have DEFAULT_ADMIN_ROLE to use this function
+     */
+    function updateMinArbitrationFeeTimeout(uint256 _minArbitrationFeeTimeout) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        minArbitrationFeeTimeout = _minArbitrationFeeTimeout;
+        emit MinArbitrationFeeTimeoutUpdated(_minArbitrationFeeTimeout);
+    }
+
+    /**
      * Withdraws the contract balance to the admin.
      */
     function withdraw() public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -474,10 +530,11 @@ contract KnowledgeLayerPlatformID is ERC721, AccessControl {
         platform.name = _platformName;
         platform.id = platformId;
         platform.signer = address(0);
+        platform.arbitrationFeeTimeout = minArbitrationFeeTimeout;
         takenNames[_platformName] = true;
         ids[_platformAddress] = platformId;
 
-        emit Mint(_platformAddress, platformId, _platformName, mintFee);
+        emit Mint(_platformAddress, platformId, _platformName, mintFee, minArbitrationFeeTimeout);
 
         return platformId;
     }
