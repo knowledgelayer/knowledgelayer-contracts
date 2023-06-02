@@ -204,6 +204,14 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         uint256 _amount
     );
 
+    /**
+     * @notice Emitted when evidence is submitted.
+     * @param _transactionId The id of the transaction.
+     * @param _partyId The KnowledgeLayer id of the party submitting the evidence.
+     * @param _evidenceUri The URI of the evidence.
+     */
+    event EvidenceSubmitted(uint256 indexed _transactionId, uint256 indexed _partyId, string _evidenceUri);
+
     // =========================== Modifiers ==============================
 
     /**
@@ -426,6 +434,33 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
             }
             _executeRuling(_transactionId, SENDER_WINS);
         }
+    }
+
+    /**
+     * @notice Allows a party to submit a reference to evidence.
+     * @param _profileId The KnowledgeLayer ID of the user
+     * @param _transactionId The id of the transaction.
+     * @param _evidence Uri of the evidence.
+     */
+    function submitEvidence(
+        uint256 _profileId,
+        uint256 _transactionId,
+        string memory _evidence
+    ) public onlyOwnerOrDelegate(_profileId) {
+        require(bytes(_evidence).length == 46, "Invalid cid");
+        Transaction storage transaction = transactions[_transactionId];
+
+        require(address(transaction.arbitrator) != address(0), "Arbitrator not set");
+
+        address party = knowledgeLayerId.ownerOf(_profileId);
+        require(
+            party == transaction.sender || party == transaction.receiver,
+            "The caller must be the sender or the receiver or their delegates"
+        );
+        require(transaction.status < TransactionStatus.Resolved, "Must not send evidence if the dispute is resolved");
+
+        emit Evidence(transaction.arbitrator, _transactionId, party, _evidence);
+        emit EvidenceSubmitted(_transactionId, _profileId, _evidence);
     }
 
     // =========================== Platform functions ==============================
