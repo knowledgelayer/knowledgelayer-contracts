@@ -29,3 +29,8 @@ export enum TransactionStatus {
   DisputeCreated,
   Resolved,
 }
+
+export enum PaymentType {
+  Release,
+  Reimburse,
+}

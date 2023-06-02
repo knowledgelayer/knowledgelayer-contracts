@@ -18,6 +18,7 @@ import {
   TransactionStatus,
   DisputeStatus,
   EVIDENCE_CID,
+  PaymentType,
 } from '../utils/constants';
 import { deploy } from '../utils/deploy';
 
@@ -26,11 +27,11 @@ const bobId = 2;
 const daveId = 3;
 const carolPlatformId = 1;
 const courseId = 1;
-const coursePrice = ethers.utils.parseEther('0.01');
+const coursePrice = ethers.utils.parseEther('100');
 const courseDisputePeriod = 60 * 60 * 24 * 7; // 7 days
 const courseDataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMf';
 const transactionId = 1;
-const transactionAmount = ethers.utils.parseEther('100');
+const transactionAmount = coursePrice;
 const arbitrationCost = ethers.utils.parseEther('0.01');
 const disputeId = 0;
 
@@ -110,21 +111,14 @@ async function getTransactionDetails(
   knowledgeLayerEscrow: KnowledgeLayerEscrow,
 ): Promise<[BigNumber, number, number, number]> {
   const platform = await knowledgeLayerPlatformID.platforms(carolPlatformId);
-  const protocolEscrowFeeRate = await knowledgeLayerEscrow.protocolFee();
-  const originCourseFeeRate = platform.originFee;
-  const originValidatedProposalFeeRate = platform.buyFee;
+  const protocolFee = await knowledgeLayerEscrow.protocolFee();
+  const originFee = platform.originFee;
+  const buyFee = platform.buyFee;
   const totalTransactionAmount = transactionAmount.add(
-    transactionAmount
-      .mul(protocolEscrowFeeRate + originValidatedProposalFeeRate + originCourseFeeRate)
-      .div(FEE_DIVIDER),
+    transactionAmount.mul(protocolFee + buyFee + originFee).div(FEE_DIVIDER),
   );
 
-  return [
-    totalTransactionAmount,
-    protocolEscrowFeeRate,
-    originCourseFeeRate,
-    originValidatedProposalFeeRate,
-  ];
+  return [totalTransactionAmount, protocolFee, originFee, buyFee];
 }
 
 async function createTransaction(
@@ -135,17 +129,14 @@ async function createTransaction(
   profileId: number,
 ): Promise<[ContractTransaction, BigNumber, number, number, number]> {
   // Create transaction
-  const [
-    totalTransactionAmount,
-    protocolEscrowFeeRate,
-    originCourseFeeRate,
-    originValidatedProposalFeeRate,
-  ] = await getTransactionDetails(knowledgeLayerPlatformID, knowledgeLayerEscrow);
+  const [totalTransactionAmount, protocolFee, ,] = await getTransactionDetails(
+    knowledgeLayerPlatformID,
+    knowledgeLayerEscrow,
+  );
 
   const course = await knowledgeLayerCourse.getCourse(courseId);
   const originFee = await knowledgeLayerPlatformID.getOriginFee(course.platformId);
   const buyFee = await knowledgeLayerPlatformID.getBuyFee(carolPlatformId);
-  const protocolFee = await knowledgeLayerEscrow.protocolFee();
   const totalPrice = coursePrice.add(
     coursePrice.mul(originFee + buyFee + protocolFee).div(FEE_DIVIDER),
   );
@@ -155,13 +146,7 @@ async function createTransaction(
       value: totalPrice,
     });
 
-  return [
-    tx,
-    totalTransactionAmount,
-    protocolEscrowFeeRate,
-    originCourseFeeRate,
-    originValidatedProposalFeeRate,
-  ];
+  return [tx, totalTransactionAmount, protocolFee, originFee, buyFee];
 }
 
 describe.only('Dispute Resolution, standard flow', () => {
@@ -178,7 +163,8 @@ describe.only('Dispute Resolution, standard flow', () => {
     buyFee: number,
     platform: KnowledgeLayerPlatformID.PlatformStructOutput;
 
-  const newArbitrationCost = BigNumber.from(8);
+  const rulingId = 1;
+  const newArbitrationCost = ethers.utils.parseEther('0.008');
   const arbitrationCostDifference = arbitrationCost.sub(newArbitrationCost);
 
   before(async () => {
@@ -363,25 +349,25 @@ describe.only('Dispute Resolution, standard flow', () => {
     });
   });
 
-  describe('Attempt to release after a dispute', async function () {
-    it('Release fails since ther must be no dispute to release', async function () {
+  describe('Attempt to release after a dispute', async () => {
+    it('Release fails since ther must be no dispute to release', async () => {
       const tx = knowledgeLayerEscrow.connect(alice).release(aliceId, transactionId);
       await expect(tx).to.be.revertedWith('Transaction is in dispute');
     });
   });
 
-  describe('Submission of Evidence', async function () {
-    it('Fails if the transaction does not have an arbitrator set', async function () {
+  describe('Submission of Evidence', async () => {
+    it('Fails if the transaction does not have an arbitrator set', async () => {
       const tx = knowledgeLayerEscrow.connect(bob).submitEvidence(bobId, 0, EVIDENCE_CID);
       await expect(tx).to.be.revertedWith('Arbitrator not set');
     });
 
-    it('Fails if the cid is invalid', async function () {
+    it('Fails if the cid is invalid', async () => {
       const tx = knowledgeLayerEscrow.connect(bob).submitEvidence(bobId, transactionId, '');
       await expect(tx).to.be.revertedWith('Invalid cid');
     });
 
-    it('Fails if evidence is not submitted by either sender or receiver of the transaction', async function () {
+    it('Fails if evidence is not submitted by either sender or receiver of the transaction', async () => {
       const tx = knowledgeLayerEscrow
         .connect(dave)
         .submitEvidence(daveId, transactionId, EVIDENCE_CID);
@@ -390,7 +376,7 @@ describe.only('Dispute Resolution, standard flow', () => {
       );
     });
 
-    it('Sender can submit evidence', async function () {
+    it('Sender can submit evidence', async () => {
       const tx = await knowledgeLayerEscrow
         .connect(bob)
         .submitEvidence(bobId, transactionId, EVIDENCE_CID);
@@ -399,13 +385,71 @@ describe.only('Dispute Resolution, standard flow', () => {
         .withArgs(knowledgeLayerArbitrator.address, transactionId, bob.address, EVIDENCE_CID);
     });
 
-    it('Receiver can submit evidence', async function () {
+    it('Receiver can submit evidence', async () => {
       const tx = await knowledgeLayerEscrow
         .connect(alice)
         .submitEvidence(aliceId, transactionId, EVIDENCE_CID);
       await expect(tx)
         .to.emit(knowledgeLayerEscrow, 'Evidence')
         .withArgs(knowledgeLayerArbitrator.address, transactionId, alice.address, EVIDENCE_CID);
+    });
+  });
+
+  describe('Submission of a ruling', async function () {
+    it('Fails if ruling is not given by the arbitrator contract', async function () {
+      const tx = knowledgeLayerEscrow.connect(dave).rule(disputeId, rulingId);
+      await expect(tx).to.be.revertedWith('The caller must be the arbitrator');
+    });
+
+    describe('Successful submission of a ruling', async function () {
+      let tx: ContractTransaction;
+
+      before(async function () {
+        // Rule in favor of the sender (Bob)
+        tx = await knowledgeLayerArbitrator.connect(carol).giveRuling(disputeId, rulingId);
+      });
+
+      it('The winner of the dispute (sender) receives escrow funds and gets arbitration fee reimbursed', async function () {
+        // Calculate total sent amount, including fees and arbitration cost reimbursement
+        const totalAmountSent = transactionAmount
+          .add(transactionAmount.mul(protocolFee + originFee + buyFee).div(FEE_DIVIDER))
+          .add(newArbitrationCost);
+
+        await expect(tx).to.changeEtherBalances(
+          [bob.address, knowledgeLayerEscrow.address],
+          [totalAmountSent, totalAmountSent.mul(-1)],
+        );
+      });
+
+      it('The owner of the platform receives the arbitration fee', async function () {
+        await expect(tx).to.changeEtherBalances(
+          [carol.address, knowledgeLayerArbitrator.address],
+          [newArbitrationCost, newArbitrationCost.mul(-1)],
+        );
+      });
+
+      it('The status of the transaction becomes "Resolved"', async function () {
+        const transaction = await knowledgeLayerEscrow.connect(bob).getTransaction(transactionId);
+        expect(transaction.status).to.be.eq(TransactionStatus.Resolved);
+      });
+
+      it('Dispute data is updated', async function () {
+        const status = await knowledgeLayerArbitrator.disputeStatus(disputeId);
+        const ruling = await knowledgeLayerArbitrator.currentRuling(disputeId);
+        expect(status).to.be.eq(DisputeStatus.Solved);
+        expect(ruling).to.be.eq(rulingId);
+      });
+
+      it('Emits the Payment event', async function () {
+        await expect(tx)
+          .to.emit(knowledgeLayerEscrow, 'Payment')
+          .withArgs(transactionId, PaymentType.Reimburse, transactionAmount);
+      });
+
+      it('Submission of ruling fails if the dispute is already solved', async function () {
+        const tx = knowledgeLayerArbitrator.connect(carol).giveRuling(disputeId, rulingId);
+        await expect(tx).to.be.revertedWith('The dispute must not be solved already.');
+      });
     });
   });
 });
