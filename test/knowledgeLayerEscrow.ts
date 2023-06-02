@@ -127,7 +127,7 @@ const escrowTests = (isEth: boolean) => {
       }
     });
 
-    describe('Buy course paying the price', async () => {
+    describe('Successfull purchase of course', async () => {
       let tx: ContractTransaction;
 
       before(async () => {
@@ -217,7 +217,7 @@ const escrowTests = (isEth: boolean) => {
       ).to.be.revertedWith('Not yet releasable');
     });
 
-    describe('Receiver can release funds', async () => {
+    describe('Successfull release of funds by receiver', async () => {
       let tx: ContractTransaction;
 
       before(async () => {
@@ -227,7 +227,7 @@ const escrowTests = (isEth: boolean) => {
         await tx.wait();
       });
 
-      it('Sends funds to Alice', async () => {
+      it('Sends funds to the receiver', async () => {
         if (isEth) {
           await expect(tx).to.changeEtherBalances(
             [knowledgeLayerEscrow, alice],
@@ -277,7 +277,7 @@ const escrowTests = (isEth: boolean) => {
       ).to.be.revertedWith('Access denied');
     });
 
-    describe('Platform owner can claim fees', async () => {
+    describe('Successfull claim of funds by owner', async () => {
       let tx: ContractTransaction;
       let originPlatformBalance: BigNumber;
 
