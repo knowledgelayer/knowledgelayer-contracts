@@ -18,6 +18,11 @@ contract KnowledgeLayerArbitrator is Arbitrator {
     mapping(uint256 => uint256) public arbitrationPrice;
 
     /**
+     * @notice Created disputes
+     */
+    Dispute[] public disputes;
+
+    /**
      * @notice Dispute struct
      * @param arbitrated The contract that created the dispute.
      * @param choices Amount of choices the arbitrator can make in the dispute.
@@ -35,7 +40,7 @@ contract KnowledgeLayerArbitrator is Arbitrator {
         DisputeStatus status;
     }
 
-    Dispute[] public disputes;
+    // =========================== Constructor ==============================
 
     /**
      * @param _knowledgeLayerPlatformIdAddress Address of the KnowledgeLayerPlatformID contract
@@ -44,16 +49,7 @@ contract KnowledgeLayerArbitrator is Arbitrator {
         knowledgeLayerPlatformId = IKnowledgeLayerPlatformID(_knowledgeLayerPlatformIdAddress);
     }
 
-    /**
-     * @dev Set the arbitration price. Only callable by the owner.
-     * @param _platformId Id of the platform to set the arbitration price for.
-     * @param _arbitrationPrice Amount to be paid for arbitration.
-     */
-    function setArbitrationPrice(uint256 _platformId, uint256 _arbitrationPrice) public {
-        require(msg.sender == knowledgeLayerPlatformId.ownerOf(_platformId), "You're not the owner of the platform");
-
-        arbitrationPrice[_platformId] = _arbitrationPrice;
-    }
+    // =========================== View functions ==============================
 
     /**
      * @dev Cost of arbitration. Accessor to arbitrationPrice.
@@ -75,6 +71,26 @@ contract KnowledgeLayerArbitrator is Arbitrator {
     ) public pure override returns (uint256 fee) {
         return NOT_PAYABLE_VALUE;
     }
+
+    /**
+     * @dev Return the status of a dispute.
+     * @param _disputeID ID of the dispute to rule.
+     * @return status The status of the dispute.
+     */
+    function disputeStatus(uint256 _disputeID) public view override returns (DisputeStatus status) {
+        return disputes[_disputeID].status;
+    }
+
+    /**
+     * @dev Return the ruling of a dispute.
+     * @param _disputeID ID of the dispute to rule.
+     * @return ruling The ruling which would or has been given.
+     */
+    function currentRuling(uint256 _disputeID) public view override returns (uint256 ruling) {
+        return disputes[_disputeID].ruling;
+    }
+
+    // =========================== User functions ==============================
 
     /**
      * @dev Create a dispute. Must be called by the arbitrable contract.
@@ -104,6 +120,19 @@ contract KnowledgeLayerArbitrator is Arbitrator {
         emit DisputeCreation(disputeID, IArbitrable(msg.sender));
     }
 
+    // =========================== Platform owner functions ==============================
+
+    /**
+     * @dev Set the arbitration price. Only callable by the owner.
+     * @param _platformId Id of the platform to set the arbitration price for.
+     * @param _arbitrationPrice Amount to be paid for arbitration.
+     */
+    function setArbitrationPrice(uint256 _platformId, uint256 _arbitrationPrice) public {
+        require(msg.sender == knowledgeLayerPlatformId.ownerOf(_platformId), "You're not the owner of the platform");
+
+        arbitrationPrice[_platformId] = _arbitrationPrice;
+    }
+
     /**
      * @dev Give a ruling. UNTRUSTED.
      * @param _disputeID ID of the dispute to rule.
@@ -128,23 +157,7 @@ contract KnowledgeLayerArbitrator is Arbitrator {
         dispute.arbitrated.rule(_disputeID, _ruling);
     }
 
-    /**
-     * @dev Return the status of a dispute.
-     * @param _disputeID ID of the dispute to rule.
-     * @return status The status of the dispute.
-     */
-    function disputeStatus(uint256 _disputeID) public view override returns (DisputeStatus status) {
-        return disputes[_disputeID].status;
-    }
-
-    /**
-     * @dev Return the ruling of a dispute.
-     * @param _disputeID ID of the dispute to rule.
-     * @return ruling The ruling which would or has been given.
-     */
-    function currentRuling(uint256 _disputeID) public view override returns (uint256 ruling) {
-        return disputes[_disputeID].ruling;
-    }
+    // =========================== Private functions ==============================
 
     /**
      * @dev Converts bytes to uint256
