@@ -167,6 +167,7 @@ const escrowTests = (isEth: boolean) => {
     });
 
     it('Updates the releasable balance for the epoch correctly', async () => {
+      // The releasable balance for the epoch is the course price, since it's the first transaction
       const releasableEpoch = await knowledgeLayerEscrow.getReleasableEpoch(firstTransactionID);
       const releasableBalance = await knowledgeLayerEscrow.releasableBalanceByEpoch(
         courseId,
@@ -177,6 +178,7 @@ const escrowTests = (isEth: boolean) => {
     });
 
     it('The current releasable balance for the course is zero', async () => {
+      // The current releasable balance for the course is zero, since no epoch has passed since the transaction
       const releasableBalance = await knowledgeLayerEscrow.getReleasableBalance(courseId);
       expect(releasableBalance).to.be.equal(0);
     });
@@ -198,6 +200,7 @@ const escrowTests = (isEth: boolean) => {
     });
 
     it('Updates the releasable balance for the epoch correctly', async () => {
+      // The transaction is in the same epoch as the previous one, so the releasable epoch is the same
       const firstReleasableEpoch = await knowledgeLayerEscrow.getReleasableEpoch(
         firstTransactionID,
       );
@@ -206,6 +209,8 @@ const escrowTests = (isEth: boolean) => {
       );
       expect(firstReleasableEpoch).to.be.equal(secondReleasableEpoch);
 
+      // The transactions will become releasable in the same epoch
+      // so the releasable balance for the epoch is the course price * 2
       const releasableBalance = await knowledgeLayerEscrow.releasableBalanceByEpoch(
         courseId,
         secondReleasableEpoch,
@@ -217,7 +222,7 @@ const escrowTests = (isEth: boolean) => {
 
   describe('Create third transaction', async () => {
     before(async () => {
-      // Transaction is in the next epoch as the previous ones
+      // Transaction is in the next epoch relative to the previous two
       await time.increase(epochDuration);
 
       if (!isEth) {
@@ -234,6 +239,8 @@ const escrowTests = (isEth: boolean) => {
     });
 
     it('Updates the releasable balance for the epoch correctly', async () => {
+      // The transaction is in the next epoch relative to the previous two
+      // so the releasable epoch is also the next one relative to the previous two
       const secondReleasableEpoch = await knowledgeLayerEscrow.getReleasableEpoch(
         secondTransactionID,
       );
@@ -242,12 +249,15 @@ const escrowTests = (isEth: boolean) => {
       );
       expect(thirdReleasableEpoch).to.be.equal(secondReleasableEpoch.add(1));
 
+      // The transactions will become releasable in the next epoch relative to the previous two
+      // so the releasable balance for the epoch of the second transaction is still the course price * 2
       const secondReleasableBalance = await knowledgeLayerEscrow.releasableBalanceByEpoch(
         courseId,
         secondReleasableEpoch,
       );
       expect(secondReleasableBalance).to.be.equal(coursePrice.mul(2));
 
+      // The releasable balance for the epoch of the third transaction is the course price
       const thirdReleasableBalance = await knowledgeLayerEscrow.releasableBalanceByEpoch(
         courseId,
         thirdReleasableEpoch,
@@ -258,17 +268,16 @@ const escrowTests = (isEth: boolean) => {
 
   describe('Dispute period expires', async () => {
     it('The current releasable balance for the course is calculated correctly', async () => {
+      // The dispute period expires for the first two transactions.
       await time.increase(courseDisputePeriod);
       const releasableBalance = await knowledgeLayerEscrow.getReleasableBalance(courseId);
       expect(releasableBalance).to.be.equal(coursePrice.mul(2));
-    });
 
-    it('The current releasable balance for the course is calculated correctly', async () => {
+      // The dispute period expires also for the third transaction.
       const epochDuration = await knowledgeLayerEscrow.EPOCH_DURATION();
       await time.increase(epochDuration);
-
-      const releasableBalance = await knowledgeLayerEscrow.getReleasableBalance(courseId);
-      expect(releasableBalance).to.be.equal(coursePrice.mul(3));
+      const releasableBalance2 = await knowledgeLayerEscrow.getReleasableBalance(courseId);
+      expect(releasableBalance2).to.be.equal(coursePrice.mul(3));
     });
   });
 };
