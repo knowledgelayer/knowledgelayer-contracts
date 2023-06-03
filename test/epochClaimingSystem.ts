@@ -1,7 +1,7 @@
 import { time } from '@nomicfoundation/hardhat-network-helpers';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { expect } from 'chai';
-import { BigNumber } from 'ethers';
+import { BigNumber, ContractTransaction } from 'ethers';
 import { ethers } from 'hardhat';
 import {
   ERC20,
@@ -278,6 +278,51 @@ const escrowTests = (isEth: boolean) => {
       await time.increase(epochDuration);
       const releasableBalance2 = await knowledgeLayerEscrow.getReleasableBalance(courseId);
       expect(releasableBalance2).to.be.equal(coursePrice.mul(3));
+    });
+  });
+
+  describe('Release all funds', async () => {
+    it("Fails if not the course's owner", async () => {
+      await expect(
+        knowledgeLayerEscrow.connect(bob).releaseAll(bobId, courseId),
+      ).to.be.revertedWith('Not the owner');
+    });
+
+    describe('Successfull release of all funds', async () => {
+      let tx: ContractTransaction, releasableBalance: BigNumber;
+
+      before(async () => {
+        releasableBalance = await knowledgeLayerEscrow.getReleasableBalance(courseId);
+
+        // Release all funds
+        tx = await knowledgeLayerEscrow.connect(alice).releaseAll(aliceId, courseId);
+      });
+
+      it('Transfers the funds of all the transactions to the course owner', async () => {
+        if (isEth) {
+          await expect(tx).to.changeEtherBalances(
+            [alice, knowledgeLayerEscrow],
+            [releasableBalance, releasableBalance.mul(-1)],
+          );
+        } else {
+          await expect(tx).to.changeTokenBalances(
+            simpleERC20,
+            [alice, knowledgeLayerEscrow],
+            [releasableBalance, releasableBalance.mul(-1)],
+          );
+        }
+      });
+
+      it('Updates last released epoch to the current epoch', async () => {
+        const currentEpoch = await knowledgeLayerEscrow.getCurrentEpoch();
+        const lastReleasedEpoch = await knowledgeLayerEscrow.lastReleasedEpoch(courseId);
+        expect(lastReleasedEpoch).to.be.equal(currentEpoch);
+      });
+
+      it('The current releasable balance for the course is zero', async () => {
+        const releasableBalance = await knowledgeLayerEscrow.getReleasableBalance(courseId);
+        expect(releasableBalance).to.be.equal(0);
+      });
     });
   });
 };

@@ -135,7 +135,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
     mapping(uint256 => mapping(uint256 => uint256)) public releasableBalanceByEpoch;
 
     // Last epoch where balance was released for each course (courseId -> epoch)
-    mapping(uint256 => uint256) lastReleasedEpoch;
+    mapping(uint256 => uint256) public lastReleasedEpoch;
 
     // Timestamp of when the first epoch started
     uint256 public epochBeginning;
@@ -408,6 +408,25 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         require(block.timestamp >= transaction.releasableAt, "Not yet releasable");
 
         _release(_transactionId, transaction.amount);
+    }
+
+    /**
+     * @notice Allows the receiver to release all the releasable transactions for a given course.
+     * @param _profileId The KnowledgeLayer ID of the user
+     */
+    function releaseAll(uint256 _profileId, uint256 _courseId) public onlyOwnerOrDelegate(_profileId) {
+        IKnowledgeLayerCourse.Course memory course = knowledgeLayerCourse.getCourse(_courseId);
+        require(course.ownerId == _profileId, "Not the owner");
+
+        uint256 currentEpoch = getCurrentEpoch();
+        uint256 releaseAmount = getReleasableBalance(_courseId);
+
+        // TODO: Distribute fees
+
+        address receiver = knowledgeLayerId.ownerOf(_profileId);
+        _transferBalance(receiver, course.token, releaseAmount);
+
+        lastReleasedEpoch[_courseId] = currentEpoch;
     }
 
     /**
