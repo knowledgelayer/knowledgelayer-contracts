@@ -1,7 +1,7 @@
 import { time } from '@nomicfoundation/hardhat-network-helpers';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { expect } from 'chai';
-import { BigNumber, ContractTransaction, Wallet } from 'ethers';
+import { BigNumber } from 'ethers';
 import { ethers } from 'hardhat';
 import {
   ERC20,
@@ -11,13 +11,7 @@ import {
   KnowledgeLayerPlatformID,
 } from '../typechain-types';
 import { deploy } from '../utils/deploy';
-import {
-  FEE_DIVIDER,
-  MintStatus,
-  PROTOCOL_INDEX,
-  ETH_ADDRESS,
-  META_EVIDENCE_CID,
-} from '../utils/constants';
+import { FEE_DIVIDER, MintStatus, ETH_ADDRESS, META_EVIDENCE_CID } from '../utils/constants';
 
 const escrowTests = (isEth: boolean) => {
   let deployer: SignerWithAddress,
@@ -31,7 +25,8 @@ const escrowTests = (isEth: boolean) => {
     knowledgeLayerEscrow: KnowledgeLayerEscrow,
     simpleERC20: ERC20,
     courseTotalPrice: BigNumber,
-    courseDisputePeriod: BigNumber,
+    epochBeginning: BigNumber,
+    epochDuration: BigNumber,
     protocolFee: number,
     tokenAddress: string;
 
@@ -43,7 +38,7 @@ const escrowTests = (isEth: boolean) => {
   const buyFee = 300;
   const courseId = 1;
   const coursePrice = ethers.utils.parseEther('0.01');
-  const courseDisputeEpochs = 3;
+  const courseDisputePeriod = BigNumber.from(60 * 60 * 24 * 2.5); // 2.5 days
   const courseDataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMf';
   const transactionId = 1;
 
@@ -51,6 +46,9 @@ const escrowTests = (isEth: boolean) => {
     [deployer, alice, bob, carol, dave] = await ethers.getSigners();
     [knowledgeLayerID, knowledgeLayerPlatformID, knowledgeLayerCourse, knowledgeLayerEscrow] =
       await deploy();
+
+    epochBeginning = await knowledgeLayerEscrow.epochBeginning();
+    epochDuration = await knowledgeLayerEscrow.EPOCH_DURATION();
 
     if (!isEth) {
       // Deploy SimpleERC20
@@ -78,8 +76,6 @@ const escrowTests = (isEth: boolean) => {
     await knowledgeLayerID.connect(bob).mint(originPlatformId, 'bob__');
     await knowledgeLayerID.connect(carol).mint(originPlatformId, 'carol');
 
-    courseDisputePeriod = (await knowledgeLayerEscrow.EPOCH_DURATION()).mul(courseDisputeEpochs);
-
     // Alice creates a course
     await knowledgeLayerCourse
       .connect(alice)
@@ -99,8 +95,6 @@ const escrowTests = (isEth: boolean) => {
   });
 
   it('Epoch beginning is set correctly', async () => {
-    const epochBeginning = await knowledgeLayerEscrow.epochBeginning();
-
     const deployBlockHash = knowledgeLayerEscrow.deployTransaction.blockHash;
     if (!deployBlockHash) throw new Error();
     const deployBlock = await ethers.provider.getBlock(deployBlockHash);
@@ -120,12 +114,15 @@ const escrowTests = (isEth: boolean) => {
     expect(currentEpoch).to.be.equal(epochsIncrease);
 
     const epochsIncrease2 = 4.5;
-    await time.increase(epochDuration.mul(epochsIncrease2 * 2).div(2));
+    await time.increase(epochDuration.mul(epochsIncrease2 * 2).div(2)); // mul and div by 2 to avoid overflow
     const currentEpoch2 = await knowledgeLayerEscrow.getCurrentEpoch();
+
     expect(currentEpoch2).to.be.equal(epochsIncrease + Math.floor(epochsIncrease2));
   });
 
   describe('Create transaction (buy course)', async () => {
+    let releasableAt: BigNumber;
+
     before(async () => {
       if (!isEth) {
         // Send tokens to Bob
@@ -144,12 +141,19 @@ const escrowTests = (isEth: boolean) => {
         });
     });
 
-    it('The releasable epoch is calculated correctly', async () => {
-      const currentEpoch = await knowledgeLayerEscrow.getCurrentEpoch();
-      const releasableEpoch = await knowledgeLayerEscrow.getReleasableEpoch(transactionId);
-      const expectedReleasableEpoch = currentEpoch.add(courseDisputeEpochs).add(1);
+    it('Correctly updates transaction releasable time', async () => {
+      const transaction = await knowledgeLayerEscrow.connect(alice).getTransaction(transactionId);
 
-      // TODO: test with non integer number of epochs
+      const lastBlockTimestamp = BigNumber.from(await time.latest());
+      releasableAt = lastBlockTimestamp.add(courseDisputePeriod);
+
+      expect(transaction.releasableAt).to.equal(releasableAt);
+    });
+
+    it('The releasable epoch is calculated correctly', async () => {
+      const releasableEpoch = await knowledgeLayerEscrow.getReleasableEpoch(transactionId);
+      const expectedReleasableEpoch = releasableAt.sub(epochBeginning).div(epochDuration).add(1);
+
       expect(releasableEpoch).to.be.equal(expectedReleasableEpoch);
     });
 
