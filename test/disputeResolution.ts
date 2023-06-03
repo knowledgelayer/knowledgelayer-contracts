@@ -50,7 +50,6 @@ function getTransactionAmountWithFees(amount: BigNumber) {
  * @returns the deployed contracts
  */
 async function deployAndSetup(
-  arbitrationFeeTimeout: number,
   tokenAddress: string,
 ): Promise<
   [KnowledgeLayerPlatformID, KnowledgeLayerCourse, KnowledgeLayerEscrow, KnowledgeLayerArbitrator]
@@ -95,7 +94,7 @@ async function deployAndSetup(
     .updateArbitrator(originPlatformId, knowledgeLayerArbitrator.address, []);
   await knowledgeLayerPlatformID
     .connect(carol)
-    .updateArbitrationFeeTimeout(originPlatformId, arbitrationFeeTimeout);
+    .updateArbitrationFeeTimeout(originPlatformId, ARBITRATION_FEE_TIMEOUT);
 
   // Update arbitration cost
   await knowledgeLayerArbitrator
@@ -136,10 +135,7 @@ describe.only('Dispute Resolution, standard flow', () => {
 
   before(async () => {
     [, alice, bob, carol, dave] = await ethers.getSigners();
-    [, , knowledgeLayerEscrow, knowledgeLayerArbitrator] = await deployAndSetup(
-      ARBITRATION_FEE_TIMEOUT,
-      ETH_ADDRESS,
-    );
+    [, , knowledgeLayerEscrow, knowledgeLayerArbitrator] = await deployAndSetup(ETH_ADDRESS);
   });
 
   describe('Submit meta evidence', async () => {
@@ -456,7 +452,7 @@ describe.only('Dispute Resolution, with receiver failing to pay arbitration fee 
 
   before(async () => {
     [, , bob] = await ethers.getSigners();
-    [, , knowledgeLayerEscrow] = await deployAndSetup(ARBITRATION_FEE_TIMEOUT, ETH_ADDRESS);
+    [, , knowledgeLayerEscrow] = await deployAndSetup(ETH_ADDRESS);
 
     // Create transaction, Bob buys Alice's course
     const totalTransactionAmount = getTransactionAmountWithFees(transactionAmount);
@@ -466,7 +462,7 @@ describe.only('Dispute Resolution, with receiver failing to pay arbitration fee 
         value: totalTransactionAmount,
       });
 
-    // Alice wants to raise a dispute and pays the arbitration fee
+    // Sender wants to raise a dispute and pays the arbitration fee
     await knowledgeLayerEscrow.connect(bob).payArbitrationFeeBySender(transactionId, {
       value: arbitrationCost,
     });
@@ -489,7 +485,7 @@ describe.only('Dispute Resolution, with receiver failing to pay arbitration fee 
       expect(transaction.receiverFee).to.be.eq(0);
     });
 
-    it('The sender receives escrow funds and gets arbitration fee reimbursed', async () => {
+    it('The sender gets escrow funds and gets arbitration fee reimbursed', async () => {
       const totalAmountSent = transactionAmount
         .add(transactionAmount.mul(protocolFee + originFee + buyFee).div(FEE_DIVIDER))
         .add(arbitrationCost);
@@ -497,6 +493,73 @@ describe.only('Dispute Resolution, with receiver failing to pay arbitration fee 
       await expect(tx).to.changeEtherBalances(
         [bob.address, knowledgeLayerEscrow.address],
         [totalAmountSent, totalAmountSent.mul(-1)],
+      );
+    });
+  });
+});
+
+describe.only('Dispute Resolution, with sender failing to pay arbitration fee on time', function () {
+  let alice: SignerWithAddress,
+    bob: SignerWithAddress,
+    carol: SignerWithAddress,
+    knowledgeLayerEscrow: KnowledgeLayerEscrow,
+    knowledgeLayerArbitrator: KnowledgeLayerArbitrator;
+
+  const newArbitrationCost = ethers.utils.parseEther('0.015');
+
+  before(async () => {
+    [, alice, bob, carol] = await ethers.getSigners();
+    [, , knowledgeLayerEscrow, knowledgeLayerArbitrator] = await deployAndSetup(ETH_ADDRESS);
+
+    // Create transaction, Bob buys Alice's course
+    const totalTransactionAmount = getTransactionAmountWithFees(transactionAmount);
+    await knowledgeLayerEscrow
+      .connect(bob)
+      .createTransaction(bobId, courseId, buyPlatformId, META_EVIDENCE_CID, {
+        value: totalTransactionAmount,
+      });
+
+    // Sender wants to raise a dispute and pays the arbitration fee
+    await knowledgeLayerEscrow.connect(bob).payArbitrationFeeBySender(transactionId, {
+      value: arbitrationCost,
+    });
+
+    // Arbitration cost inreases
+    await knowledgeLayerArbitrator
+      .connect(carol)
+      .setArbitrationPrice(originPlatformId, newArbitrationCost);
+
+    // Receiver pays arbitration fee to open the dispute
+    await knowledgeLayerEscrow.connect(alice).payArbitrationFeeByReceiver(transactionId, {
+      value: newArbitrationCost,
+    });
+
+    // Simulate arbitration fee timeout expiration
+    await time.increase(ARBITRATION_FEE_TIMEOUT);
+  });
+
+  describe('Trigger arbitration fee timeout', function () {
+    let tx: ContractTransaction;
+
+    before(async () => {
+      tx = await knowledgeLayerEscrow.connect(alice).arbitrationFeeTimeout(transactionId);
+    });
+
+    it('The transaction data is updated correctly', async () => {
+      const transaction = await knowledgeLayerEscrow.connect(bob).getTransaction(transactionId);
+      expect(transaction.status).to.be.eq(TransactionStatus.Resolved);
+      expect(transaction.senderFee).to.be.eq(0);
+      expect(transaction.receiverFee).to.be.eq(0);
+    });
+
+    it('The receiver gets escrow funds and parties get arbitration fee reimbursed', async () => {
+      await expect(tx).to.changeEtherBalances(
+        [bob.address, alice.address, knowledgeLayerEscrow.address],
+        [
+          arbitrationCost,
+          transactionAmount.add(newArbitrationCost),
+          transactionAmount.add(arbitrationCost).add(newArbitrationCost).mul(-1),
+        ],
       );
     });
   });
