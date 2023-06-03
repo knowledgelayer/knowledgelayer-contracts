@@ -458,7 +458,7 @@ describe('Dispute Resolution, sender wins', () => {
   });
 });
 
-describe('Dispute Resolution, receiver fails to pay arbitration fee on time', function () {
+describe('Dispute Resolution, receiver fails to pay arbitration fee on time', () => {
   let sender: SignerWithAddress, knowledgeLayerEscrow: KnowledgeLayerEscrow;
 
   before(async () => {
@@ -482,7 +482,7 @@ describe('Dispute Resolution, receiver fails to pay arbitration fee on time', fu
     await time.increase(ARBITRATION_FEE_TIMEOUT);
   });
 
-  describe('Trigger arbitration fee timeout', function () {
+  describe('Trigger arbitration fee timeout', () => {
     let tx: ContractTransaction;
 
     before(async () => {
@@ -509,7 +509,7 @@ describe('Dispute Resolution, receiver fails to pay arbitration fee on time', fu
   });
 });
 
-describe('Dispute Resolution, sender fails to pay arbitration fee on time', function () {
+describe('Dispute Resolution, sender fails to pay arbitration fee on time', () => {
   let sender: SignerWithAddress,
     receiver: SignerWithAddress,
     carol: SignerWithAddress,
@@ -549,7 +549,7 @@ describe('Dispute Resolution, sender fails to pay arbitration fee on time', func
     await time.increase(ARBITRATION_FEE_TIMEOUT);
   });
 
-  describe('Trigger arbitration fee timeout', function () {
+  describe('Trigger arbitration fee timeout', () => {
     let tx: ContractTransaction;
 
     before(async () => {
@@ -576,7 +576,7 @@ describe('Dispute Resolution, sender fails to pay arbitration fee on time', func
   });
 });
 
-describe('Dispute Resolution, arbitrator abstains from giving a ruling', function () {
+describe('Dispute Resolution, arbitrator abstains from giving a ruling', () => {
   let sender: SignerWithAddress,
     receiver: SignerWithAddress,
     carol: SignerWithAddress,
@@ -606,16 +606,16 @@ describe('Dispute Resolution, arbitrator abstains from giving a ruling', functio
     });
   });
 
-  describe('The arbitrator abstains from giving a ruling', async function () {
+  describe('The arbitrator abstains from giving a ruling', async () => {
     let tx: ContractTransaction, halfTransactionAmount: BigNumber, halfArbitrationCost: BigNumber;
 
-    before(async function () {
+    before(async () => {
       tx = await knowledgeLayerArbitrator.connect(carol).giveRuling(disputeId, NO_WINNER);
       halfTransactionAmount = transactionAmount.div(2);
       halfArbitrationCost = arbitrationCost.div(2);
     });
 
-    it('Split funds and arbitration fee half and half between the parties', async function () {
+    it('Split funds and arbitration fee half and half between the parties', async () => {
       // Half of transaction amount (+ fees) and half of arbitration cost is sent to the sender
       const senderAmount =
         getTransactionAmountWithFees(halfTransactionAmount).add(halfArbitrationCost);
@@ -629,7 +629,7 @@ describe('Dispute Resolution, arbitrator abstains from giving a ruling', functio
       );
     });
 
-    it('Increases platform and protocol fees balance', async function () {
+    it('Increases platform and protocol fees balance', async () => {
       const originPlatformBalance = await knowledgeLayerEscrow
         .connect(carol)
         .platformBalance(originPlatformId, ETH_ADDRESS);
@@ -649,7 +649,7 @@ describe('Dispute Resolution, arbitrator abstains from giving a ruling', functio
       expect(protocolBalance).to.be.eq(protocolFeeAmount);
     });
 
-    it('Emits the Payment events', async function () {
+    it('Emits the Payment events', async () => {
       await expect(tx)
         .to.emit(knowledgeLayerEscrow, 'Payment')
         .withArgs(transactionId, PaymentType.Release, halfTransactionAmount);
@@ -657,6 +657,100 @@ describe('Dispute Resolution, arbitrator abstains from giving a ruling', functio
       await expect(tx)
         .to.emit(knowledgeLayerEscrow, 'Payment')
         .withArgs(transactionId, PaymentType.Reimburse, halfTransactionAmount);
+    });
+  });
+});
+
+describe('Dispute Resolution, receiver wins', () => {
+  let sender: SignerWithAddress,
+    receiver: SignerWithAddress,
+    carol: SignerWithAddress,
+    knowledgeLayerEscrow: KnowledgeLayerEscrow,
+    knowledgeLayerArbitrator: KnowledgeLayerArbitrator,
+    tx: ContractTransaction;
+
+  const initialArbitrationCost = arbitrationCost;
+  const intermediateArbitrationCost = ethers.utils.parseEther('0.012');
+  const finalArbitrationCost = ethers.utils.parseEther('0.011');
+
+  before(async () => {
+    [, sender, receiver, carol] = await ethers.getSigners();
+    [, , knowledgeLayerEscrow, knowledgeLayerArbitrator] = await deployAndSetup(ETH_ADDRESS);
+
+    // Create transaction, sender buys receiver's course
+    const totalTransactionAmount = getTransactionAmountWithFees(transactionAmount);
+    await knowledgeLayerEscrow
+      .connect(sender)
+      .createTransaction(senderId, courseId, buyPlatformId, META_EVIDENCE_CID, {
+        value: totalTransactionAmount,
+      });
+
+    // Sender wants to raise a dispute and pays the arbitration fee
+    await knowledgeLayerEscrow.connect(sender).payArbitrationFeeBySender(transactionId, {
+      value: initialArbitrationCost,
+    });
+
+    // Arbitration fee increases
+    await knowledgeLayerArbitrator
+      .connect(carol)
+      .setArbitrationPrice(originPlatformId, intermediateArbitrationCost);
+
+    // Receiver pays arbitration fee
+    await knowledgeLayerEscrow.connect(receiver).payArbitrationFeeByReceiver(transactionId, {
+      value: intermediateArbitrationCost,
+    });
+
+    // Arbitration fee decreases
+    await knowledgeLayerArbitrator
+      .connect(carol)
+      .setArbitrationPrice(originPlatformId, finalArbitrationCost);
+
+    // Sender pays remaining arbitration fee and dispute is created
+    tx = await knowledgeLayerEscrow.connect(sender).payArbitrationFeeBySender(transactionId, {
+      value: finalArbitrationCost.sub(initialArbitrationCost),
+    });
+  });
+
+  it('Receiver is reimbursed for overpaying arbitration fee', async () => {
+    const overPaidAmount = intermediateArbitrationCost.sub(finalArbitrationCost);
+
+    const escrowInputAmount = finalArbitrationCost.sub(initialArbitrationCost); // Remaining arbitration fee paid by sender
+    const escrowOutboundAmount = finalArbitrationCost.add(overPaidAmount);
+    const escrowBalanceChange = escrowInputAmount.add(escrowOutboundAmount.mul(-1));
+
+    await expect(tx).to.changeEtherBalances(
+      [receiver.address, knowledgeLayerEscrow.address],
+      [overPaidAmount, escrowBalanceChange],
+    );
+  });
+
+  describe('Submission of a ruling', async () => {
+    let tx: ContractTransaction;
+
+    before(async () => {
+      // Rule in favor of the sender
+      tx = await knowledgeLayerArbitrator.connect(carol).giveRuling(disputeId, RECEIVER_WINS);
+    });
+
+    it('The winner of the dispute (receiver) receives escrow funds and gets arbitration fee reimbursed', async () => {
+      const totalAmountSent = transactionAmount.add(finalArbitrationCost);
+      await expect(tx).to.changeEtherBalances(
+        [receiver.address, knowledgeLayerEscrow.address],
+        [totalAmountSent, totalAmountSent.mul(-1)],
+      );
+    });
+
+    it('The owner of the platform receives the arbitration fee', async () => {
+      await expect(tx).to.changeEtherBalances(
+        [carol.address, knowledgeLayerArbitrator.address],
+        [finalArbitrationCost, finalArbitrationCost.mul(-1)],
+      );
+    });
+
+    it('Emits the Payment event', async () => {
+      await expect(tx)
+        .to.emit(knowledgeLayerEscrow, 'Payment')
+        .withArgs(transactionId, PaymentType.Release, transactionAmount);
     });
   });
 });
