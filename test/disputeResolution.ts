@@ -8,6 +8,7 @@ import {
   KnowledgeLayerArbitrator,
   KnowledgeLayerEscrow,
   KnowledgeLayerPlatformID,
+  ERC20,
 } from '../typechain-types';
 import {
   ETH_ADDRESS,
@@ -751,6 +752,73 @@ describe('Dispute Resolution, receiver wins', () => {
       await expect(tx)
         .to.emit(knowledgeLayerEscrow, 'Payment')
         .withArgs(transactionId, PaymentType.Release, transactionAmount);
+    });
+  });
+});
+
+describe('Dispute Resolution, with ERC20 token transaction', function () {
+  let deployer: SignerWithAddress,
+    sender: SignerWithAddress,
+    receiver: SignerWithAddress,
+    carol: SignerWithAddress,
+    knowledgeLayerEscrow: KnowledgeLayerEscrow,
+    knowledgeLayerArbitrator: KnowledgeLayerArbitrator,
+    simpleERC20: ERC20;
+
+  before(async () => {
+    [deployer, sender, receiver, carol] = await ethers.getSigners();
+
+    // Deploy SimpleERC20
+    const SimpleERC20 = await ethers.getContractFactory('SimpleERC20');
+    simpleERC20 = await SimpleERC20.deploy();
+    simpleERC20.deployed();
+
+    [, , knowledgeLayerEscrow, knowledgeLayerArbitrator] = await deployAndSetup(
+      simpleERC20.address,
+    );
+
+    // Send tokens to sender
+    const balance = await simpleERC20.balanceOf(deployer.address);
+    simpleERC20.connect(deployer).transfer(sender.address, balance);
+
+    // Approve tokens to escrow
+    const totalTransactionAmount = getTransactionAmountWithFees(transactionAmount);
+    await simpleERC20.connect(sender).approve(knowledgeLayerEscrow.address, totalTransactionAmount);
+
+    // Create transaction, sender buys receiver's course
+    await knowledgeLayerEscrow
+      .connect(sender)
+      .createTransaction(senderId, courseId, buyPlatformId, META_EVIDENCE_CID);
+
+    // Sender wants to raise a dispute and pays the arbitration fee
+    await knowledgeLayerEscrow.connect(sender).payArbitrationFeeBySender(transactionId, {
+      value: arbitrationCost,
+    });
+
+    // Receiver pays arbitration fee and dispute id created
+    await knowledgeLayerEscrow.connect(receiver).payArbitrationFeeByReceiver(transactionId, {
+      value: arbitrationCost,
+    });
+  });
+
+  describe('Successful submission of a ruling', async () => {
+    let tx: ContractTransaction;
+
+    before(async () => {
+      // Rule in favor of the sender
+      tx = await knowledgeLayerArbitrator.connect(carol).giveRuling(disputeId, SENDER_WINS);
+    });
+
+    it('The winner of the dispute receives escrow funds and gets arbitration fee reimbursed', async () => {
+      const totalAmountSent = transactionAmount.add(
+        transactionAmount.mul(protocolFee + originFee + buyFee).div(FEE_DIVIDER),
+      );
+
+      await expect(tx).to.changeTokenBalances(
+        simpleERC20,
+        [sender.address, knowledgeLayerEscrow.address],
+        [totalAmountSent, totalAmountSent.mul(-1)],
+      );
     });
   });
 });
