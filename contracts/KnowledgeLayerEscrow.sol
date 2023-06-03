@@ -131,11 +131,11 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
     // One-to-one relationship between the dispute and the transaction.
     mapping(uint256 => uint256) public disputeIDtoTransactionID;
 
-    // Amount that is claimable per each epoch per course (courseId -> epoch -> balance)
-    mapping(uint256 => mapping(uint256 => uint256)) claimableBalanceByEpoch;
+    // Amount that is releasable per each epoch per course (courseId -> epoch -> balance)
+    mapping(uint256 => mapping(uint256 => uint256)) public releasableBalanceByEpoch;
 
-    // Last epoch where balance was claimed for each course (courseId -> epoch)
-    mapping(uint256 => uint256) lastClaimedEpoch;
+    // Last epoch where balance was released for each course (courseId -> epoch)
+    mapping(uint256 => uint256) lastReleasedEpoch;
 
     // Timestamp of when the first epoch started
     uint256 public epochBeginning;
@@ -278,10 +278,18 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
     }
 
     /**
+     * @dev Returns the epoch corresponding to the given timestamp
+     * @param timestamp The timestamp
+     */
+    function getEpoch(uint256 timestamp) public view returns (uint256) {
+        return (timestamp - epochBeginning) / EPOCH_DURATION;
+    }
+
+    /**
      * @dev Returns the current epoch of the releasing system
      */
     function getCurrentEpoch() public view returns (uint256) {
-        return (block.timestamp - epochBeginning) / EPOCH_DURATION;
+        return getEpoch(block.timestamp);
     }
 
     // =========================== User functions ==============================
@@ -320,6 +328,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         require(bytes(_metaEvidence).length == 46, "Invalid cid");
 
         uint256 id = nextTransactionId.current();
+        uint256 releasableAt = block.timestamp + course.disputePeriod;
 
         nextTransactionId.increment();
         transactions[id] = Transaction({
@@ -330,7 +339,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
             amount: course.price,
             courseId: _courseId,
             buyPlatformId: _platformId,
-            releasableAt: block.timestamp + course.disputePeriod,
+            releasableAt: releasableAt,
             protocolFee: protocolFee,
             originFee: originPlatform.originFee,
             buyFee: buyPlatform.buyFee,
@@ -343,6 +352,9 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
             receiverFee: 0,
             lastInteraction: block.timestamp
         });
+
+        uint256 releasableEpoch = getEpoch(releasableAt) + 1;
+        releasableBalanceByEpoch[_courseId][releasableEpoch] += course.price;
 
         if (course.token != address(0)) {
             IERC20(course.token).safeTransferFrom(sender, address(this), totalAmount);

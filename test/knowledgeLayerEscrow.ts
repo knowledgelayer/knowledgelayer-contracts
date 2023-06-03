@@ -95,7 +95,7 @@ const escrowTests = (isEth: boolean) => {
     );
   });
 
-  describe('Buy course', async () => {
+  describe('Create transaction (buy course)', async () => {
     it("Can't buy course if not profile owner", async () => {
       await expect(
         knowledgeLayerEscrow

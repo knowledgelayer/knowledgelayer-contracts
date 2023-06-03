@@ -31,6 +31,7 @@ const escrowTests = (isEth: boolean) => {
     knowledgeLayerEscrow: KnowledgeLayerEscrow,
     simpleERC20: ERC20,
     courseTotalPrice: BigNumber,
+    courseDisputePeriod: BigNumber,
     protocolFee: number,
     tokenAddress: string;
 
@@ -42,7 +43,7 @@ const escrowTests = (isEth: boolean) => {
   const buyFee = 300;
   const courseId = 1;
   const coursePrice = ethers.utils.parseEther('0.01');
-  const courseDisputePeriod = 60 * 60 * 24 * 7; // 7 days
+  const courseDisputeEpochs = 3;
   const courseDataUri = 'QmVFZBWZ9anb3HCQtSDXprjKdZMxThbKHedj1on5N2HqMf';
   const transactionId = 1;
 
@@ -76,6 +77,8 @@ const escrowTests = (isEth: boolean) => {
     await knowledgeLayerID.connect(alice).mint(originPlatformId, 'alice');
     await knowledgeLayerID.connect(bob).mint(originPlatformId, 'bob__');
     await knowledgeLayerID.connect(carol).mint(originPlatformId, 'carol');
+
+    courseDisputePeriod = (await knowledgeLayerEscrow.EPOCH_DURATION()).mul(courseDisputeEpochs);
 
     // Alice creates a course
     await knowledgeLayerCourse
@@ -120,6 +123,43 @@ const escrowTests = (isEth: boolean) => {
     await time.increase(epochDuration.mul(epochsIncrease2 * 2).div(2));
     const currentEpoch2 = await knowledgeLayerEscrow.getCurrentEpoch();
     expect(currentEpoch2).to.be.equal(epochsIncrease + Math.floor(epochsIncrease2));
+  });
+
+  describe('Create transaction (buy course)', async () => {
+    before(async () => {
+      if (!isEth) {
+        // Send tokens to Bob
+        const balance = await simpleERC20.balanceOf(deployer.address);
+        simpleERC20.connect(deployer).transfer(bob.address, balance);
+
+        // Approve tokens to escrow
+        await simpleERC20.connect(bob).approve(knowledgeLayerEscrow.address, courseTotalPrice);
+      }
+
+      // Bob buys Alice's course
+      await knowledgeLayerEscrow
+        .connect(bob)
+        .createTransaction(bobId, courseId, buyPlatformId, META_EVIDENCE_CID, {
+          value: isEth ? courseTotalPrice : 0,
+        });
+    });
+
+    it('Updates the releasable balance correctly', async () => {
+      const currentEpoch = await knowledgeLayerEscrow.getCurrentEpoch();
+      const transaction = await knowledgeLayerEscrow.connect(bob).getTransaction(transactionId);
+      const releasableEpoch = (await knowledgeLayerEscrow.getEpoch(transaction.releasableAt)).add(
+        1,
+      );
+
+      expect(releasableEpoch).to.be.equal(currentEpoch.add(courseDisputeEpochs).add(1));
+
+      const releasableBalance = await knowledgeLayerEscrow.releasableBalanceByEpoch(
+        courseId,
+        releasableEpoch,
+      );
+
+      expect(releasableBalance).to.be.equal(coursePrice);
+    });
   });
 };
 
