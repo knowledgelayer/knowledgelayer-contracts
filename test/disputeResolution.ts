@@ -23,8 +23,8 @@ import {
 } from '../utils/constants';
 import { deploy } from '../utils/deploy';
 
-const aliceId = 1;
-const bobId = 2;
+const receiverId = 1;
+const senderId = 2;
 const daveId = 3;
 const originPlatformId = 1;
 const buyPlatformId = 2;
@@ -58,7 +58,7 @@ async function deployAndSetup(
 ): Promise<
   [KnowledgeLayerPlatformID, KnowledgeLayerCourse, KnowledgeLayerEscrow, KnowledgeLayerArbitrator]
 > {
-  const [deployer, alice, bob, carol, dave] = await ethers.getSigners();
+  const [deployer, sender, receiver, carol, dave] = await ethers.getSigners();
   const [
     knowledgeLayerID,
     knowledgeLayerPlatformID,
@@ -83,8 +83,8 @@ async function deployAndSetup(
 
   // Mint KnowledgeLayer IDs
   await knowledgeLayerID.connect(deployer).updateMintStatus(MintStatus.PUBLIC);
-  await knowledgeLayerID.connect(alice).mint(originPlatformId, 'alice');
-  await knowledgeLayerID.connect(bob).mint(originPlatformId, 'bob__');
+  await knowledgeLayerID.connect(receiver).mint(originPlatformId, 'receiver');
+  await knowledgeLayerID.connect(sender).mint(originPlatformId, 'sender__');
   await knowledgeLayerID.connect(dave).mint(originPlatformId, 'dave_');
 
   // Add KnowledgeLayerArbitrator to platform available arbitrators
@@ -105,11 +105,11 @@ async function deployAndSetup(
     .connect(carol)
     .setArbitrationPrice(originPlatformId, arbitrationCost);
 
-  // Alice creates a course
+  // Receiver creates a course
   await knowledgeLayerCourse
-    .connect(alice)
+    .connect(receiver)
     .createCourse(
-      aliceId,
+      receiverId,
       originPlatformId,
       coursePrice,
       tokenAddress,
@@ -126,8 +126,8 @@ async function deployAndSetup(
 }
 
 describe('Dispute Resolution, sender wins', () => {
-  let alice: SignerWithAddress,
-    bob: SignerWithAddress,
+  let sender: SignerWithAddress,
+    receiver: SignerWithAddress,
     carol: SignerWithAddress,
     dave: SignerWithAddress,
     knowledgeLayerEscrow: KnowledgeLayerEscrow,
@@ -137,7 +137,7 @@ describe('Dispute Resolution, sender wins', () => {
   const arbitrationCostDifference = arbitrationCost.sub(newArbitrationCost);
 
   before(async () => {
-    [, alice, bob, carol, dave] = await ethers.getSigners();
+    [, sender, receiver, carol, dave] = await ethers.getSigners();
     [, , knowledgeLayerEscrow, knowledgeLayerArbitrator] = await deployAndSetup(ETH_ADDRESS);
   });
 
@@ -145,11 +145,11 @@ describe('Dispute Resolution, sender wins', () => {
     let tx: ContractTransaction;
 
     before(async () => {
-      // Create transaction, Bob buys Alice's course
+      // Create transaction, sender buys receiver's course
       const totalTransactionAmount = getTransactionAmountWithFees(transactionAmount);
       tx = await knowledgeLayerEscrow
-        .connect(bob)
-        .createTransaction(bobId, courseId, buyPlatformId, META_EVIDENCE_CID, {
+        .connect(sender)
+        .createTransaction(senderId, courseId, buyPlatformId, META_EVIDENCE_CID, {
           value: totalTransactionAmount,
         });
     });
@@ -163,7 +163,7 @@ describe('Dispute Resolution, sender wins', () => {
 
   describe('Attempt to open dispute by receiver', async () => {
     it("Receiver can't open a dispute", async () => {
-      const tx = knowledgeLayerEscrow.connect(alice).payArbitrationFeeByReceiver(transactionId, {
+      const tx = knowledgeLayerEscrow.connect(receiver).payArbitrationFeeByReceiver(transactionId, {
         value: arbitrationCost,
       });
       await expect(tx).to.be.revertedWith('Receiver does not have to pay');
@@ -172,7 +172,7 @@ describe('Dispute Resolution, sender wins', () => {
 
   describe('Payment of arbitration fee by sender', async () => {
     it('Fails if the transaction does not have an arbitrator set', async () => {
-      const tx = knowledgeLayerEscrow.connect(bob).payArbitrationFeeBySender(0, {
+      const tx = knowledgeLayerEscrow.connect(sender).payArbitrationFeeBySender(0, {
         value: arbitrationCost,
       });
       await expect(tx).to.be.revertedWith('Arbitrator not set');
@@ -186,7 +186,7 @@ describe('Dispute Resolution, sender wins', () => {
     });
 
     it('Fails if the amount of ETH sent is less than the arbitration cost', async () => {
-      const tx = knowledgeLayerEscrow.connect(bob).payArbitrationFeeBySender(transactionId, {
+      const tx = knowledgeLayerEscrow.connect(sender).payArbitrationFeeBySender(transactionId, {
         value: arbitrationCost.sub(1),
       });
       await expect(tx).to.be.revertedWith('The sender fee must be equal to the arbitration cost');
@@ -196,21 +196,23 @@ describe('Dispute Resolution, sender wins', () => {
       let tx: ContractTransaction;
 
       before(async () => {
-        // Bob pays arbitration fee to open a dispute
-        tx = await knowledgeLayerEscrow.connect(bob).payArbitrationFeeBySender(transactionId, {
+        // Sender pays arbitration fee to open a dispute
+        tx = await knowledgeLayerEscrow.connect(sender).payArbitrationFeeBySender(transactionId, {
           value: arbitrationCost,
         });
       });
 
       it('Arbitration fee is sent from sender to escrow', async () => {
         await expect(tx).to.changeEtherBalances(
-          [bob.address, knowledgeLayerEscrow.address],
+          [sender.address, knowledgeLayerEscrow.address],
           [arbitrationCost.mul(-1), arbitrationCost],
         );
       });
 
       it('The transaction data is updated correctly', async () => {
-        const transaction = await knowledgeLayerEscrow.connect(bob).getTransaction(transactionId);
+        const transaction = await knowledgeLayerEscrow
+          .connect(sender)
+          .getTransaction(transactionId);
 
         // Fee paid by sender is updated correctly
         expect(transaction.senderFee).to.be.eq(arbitrationCost);
@@ -227,7 +229,7 @@ describe('Dispute Resolution, sender wins', () => {
 
   describe('Attempt to end dispute before arbitration fee timeout has passed', async () => {
     it('Fails if arbitration fee timeout has not passed', async () => {
-      const tx = knowledgeLayerEscrow.connect(bob).arbitrationFeeTimeout(transactionId);
+      const tx = knowledgeLayerEscrow.connect(sender).arbitrationFeeTimeout(transactionId);
       await expect(tx).to.be.revertedWith('Timeout time has not passed yet');
     });
   });
@@ -241,7 +243,7 @@ describe('Dispute Resolution, sender wins', () => {
     });
 
     it('Fails if the transaction does not have an arbitrator set', async () => {
-      const tx = knowledgeLayerEscrow.connect(alice).payArbitrationFeeByReceiver(0, {
+      const tx = knowledgeLayerEscrow.connect(receiver).payArbitrationFeeByReceiver(0, {
         value: newArbitrationCost,
       });
       await expect(tx).to.be.revertedWith('Arbitrator not set');
@@ -255,7 +257,7 @@ describe('Dispute Resolution, sender wins', () => {
     });
 
     it('Fails if the amount of ETH sent is less than the arbitration cost', async () => {
-      const tx = knowledgeLayerEscrow.connect(alice).payArbitrationFeeByReceiver(transactionId, {
+      const tx = knowledgeLayerEscrow.connect(receiver).payArbitrationFeeByReceiver(transactionId, {
         value: newArbitrationCost.sub(1),
       });
       await expect(tx).to.be.revertedWith('The receiver fee must be equal to the arbitration cost');
@@ -265,24 +267,28 @@ describe('Dispute Resolution, sender wins', () => {
       let tx: ContractTransaction;
 
       before(async () => {
-        tx = await knowledgeLayerEscrow.connect(alice).payArbitrationFeeByReceiver(transactionId, {
-          value: newArbitrationCost,
-        });
+        tx = await knowledgeLayerEscrow
+          .connect(receiver)
+          .payArbitrationFeeByReceiver(transactionId, {
+            value: newArbitrationCost,
+          });
       });
 
       it('The arbitration fee is sent to the arbitrator', async () => {
         await expect(tx).to.changeEtherBalances(
-          [alice.address, knowledgeLayerEscrow.address, knowledgeLayerArbitrator.address],
+          [receiver.address, knowledgeLayerEscrow.address, knowledgeLayerArbitrator.address],
           [newArbitrationCost.mul(-1), arbitrationCostDifference.mul(-1), newArbitrationCost],
         );
       });
 
       it('Sender is reimbursed for overpaying arbitration fee', async () => {
-        await expect(tx).to.changeEtherBalances([bob.address], [arbitrationCostDifference]);
+        await expect(tx).to.changeEtherBalances([sender.address], [arbitrationCostDifference]);
       });
 
       it('The transaction data is updated correctly', async () => {
-        const transaction = await knowledgeLayerEscrow.connect(alice).getTransaction(transactionId);
+        const transaction = await knowledgeLayerEscrow
+          .connect(receiver)
+          .getTransaction(transactionId);
 
         // Fee paid by sender and receiver is updated correctly
         expect(transaction.senderFee).to.be.eq(newArbitrationCost);
@@ -315,19 +321,19 @@ describe('Dispute Resolution, sender wins', () => {
 
   describe('Attempt to release after a dispute', async () => {
     it('Release fails since ther must be no dispute to release', async () => {
-      const tx = knowledgeLayerEscrow.connect(alice).release(aliceId, transactionId);
+      const tx = knowledgeLayerEscrow.connect(receiver).release(receiverId, transactionId);
       await expect(tx).to.be.revertedWith('Transaction is in dispute');
     });
   });
 
   describe('Submission of Evidence', async () => {
     it('Fails if the transaction does not have an arbitrator set', async () => {
-      const tx = knowledgeLayerEscrow.connect(bob).submitEvidence(bobId, 0, EVIDENCE_CID);
+      const tx = knowledgeLayerEscrow.connect(sender).submitEvidence(senderId, 0, EVIDENCE_CID);
       await expect(tx).to.be.revertedWith('Arbitrator not set');
     });
 
     it('Fails if the cid is invalid', async () => {
-      const tx = knowledgeLayerEscrow.connect(bob).submitEvidence(bobId, transactionId, '');
+      const tx = knowledgeLayerEscrow.connect(sender).submitEvidence(senderId, transactionId, '');
       await expect(tx).to.be.revertedWith('Invalid cid');
     });
 
@@ -342,20 +348,20 @@ describe('Dispute Resolution, sender wins', () => {
 
     it('Sender can submit evidence', async () => {
       const tx = await knowledgeLayerEscrow
-        .connect(bob)
-        .submitEvidence(bobId, transactionId, EVIDENCE_CID);
+        .connect(sender)
+        .submitEvidence(senderId, transactionId, EVIDENCE_CID);
       await expect(tx)
         .to.emit(knowledgeLayerEscrow, 'Evidence')
-        .withArgs(knowledgeLayerArbitrator.address, transactionId, bob.address, EVIDENCE_CID);
+        .withArgs(knowledgeLayerArbitrator.address, transactionId, sender.address, EVIDENCE_CID);
     });
 
     it('Receiver can submit evidence', async () => {
       const tx = await knowledgeLayerEscrow
-        .connect(alice)
-        .submitEvidence(aliceId, transactionId, EVIDENCE_CID);
+        .connect(receiver)
+        .submitEvidence(receiverId, transactionId, EVIDENCE_CID);
       await expect(tx)
         .to.emit(knowledgeLayerEscrow, 'Evidence')
-        .withArgs(knowledgeLayerArbitrator.address, transactionId, alice.address, EVIDENCE_CID);
+        .withArgs(knowledgeLayerArbitrator.address, transactionId, receiver.address, EVIDENCE_CID);
     });
   });
 
@@ -369,7 +375,7 @@ describe('Dispute Resolution, sender wins', () => {
       let tx: ContractTransaction;
 
       before(async () => {
-        // Rule in favor of the sender (Bob)
+        // Rule in favor of the sender (sender)
         tx = await knowledgeLayerArbitrator.connect(carol).giveRuling(disputeId, SENDER_WINS);
       });
 
@@ -380,7 +386,7 @@ describe('Dispute Resolution, sender wins', () => {
           .add(newArbitrationCost);
 
         await expect(tx).to.changeEtherBalances(
-          [bob.address, knowledgeLayerEscrow.address],
+          [sender.address, knowledgeLayerEscrow.address],
           [totalAmountSent, totalAmountSent.mul(-1)],
         );
       });
@@ -393,7 +399,9 @@ describe('Dispute Resolution, sender wins', () => {
       });
 
       it('The transaction data is updated correctly', async () => {
-        const transaction = await knowledgeLayerEscrow.connect(bob).getTransaction(transactionId);
+        const transaction = await knowledgeLayerEscrow
+          .connect(sender)
+          .getTransaction(transactionId);
         expect(transaction.status).to.be.eq(TransactionStatus.Resolved);
         expect(transaction.senderFee).to.be.eq(0);
         expect(transaction.receiverFee).to.be.eq(newArbitrationCost);
@@ -416,12 +424,12 @@ describe('Dispute Resolution, sender wins', () => {
 
   describe('Appealing a ruling', async () => {
     it('Fails if the transaction does not have an arbitrator set', async () => {
-      const tx = knowledgeLayerEscrow.connect(bob).appeal(0);
+      const tx = knowledgeLayerEscrow.connect(sender).appeal(0);
       await expect(tx).to.be.revertedWith('Arbitrator not set');
     });
 
     it('Fails because cost is too high', async () => {
-      const tx = knowledgeLayerEscrow.connect(bob).appeal(transactionId, {
+      const tx = knowledgeLayerEscrow.connect(sender).appeal(transactionId, {
         value: ethers.utils.parseEther('100'),
       });
       await expect(tx).to.be.revertedWith('Not enough ETH to cover appeal costs.');
@@ -430,7 +438,7 @@ describe('Dispute Resolution, sender wins', () => {
 
   describe('Attempt to do dispute actions on a resolved dispute', async () => {
     it('Fails to pay arbitration fee by sender on resolved dispute', async () => {
-      const tx = knowledgeLayerEscrow.connect(bob).payArbitrationFeeBySender(transactionId, {
+      const tx = knowledgeLayerEscrow.connect(sender).payArbitrationFeeBySender(transactionId, {
         value: newArbitrationCost,
       });
       await expect(tx).to.be.revertedWith('Dispute already created');
@@ -438,8 +446,8 @@ describe('Dispute Resolution, sender wins', () => {
 
     it('Fails to submit evidence on resolved dispute', async () => {
       const tx = knowledgeLayerEscrow
-        .connect(bob)
-        .submitEvidence(bobId, transactionId, EVIDENCE_CID);
+        .connect(sender)
+        .submitEvidence(senderId, transactionId, EVIDENCE_CID);
       await expect(tx).to.be.revertedWith('Must not send evidence if the dispute is resolved');
     });
 
@@ -451,22 +459,22 @@ describe('Dispute Resolution, sender wins', () => {
 });
 
 describe('Dispute Resolution, receiver fails to pay arbitration fee on time', function () {
-  let bob: SignerWithAddress, knowledgeLayerEscrow: KnowledgeLayerEscrow;
+  let sender: SignerWithAddress, knowledgeLayerEscrow: KnowledgeLayerEscrow;
 
   before(async () => {
-    [, , bob] = await ethers.getSigners();
+    [, sender] = await ethers.getSigners();
     [, , knowledgeLayerEscrow] = await deployAndSetup(ETH_ADDRESS);
 
-    // Create transaction, Bob buys Alice's course
+    // Create transaction, sender buys receiver's course
     const totalTransactionAmount = getTransactionAmountWithFees(transactionAmount);
     await knowledgeLayerEscrow
-      .connect(bob)
-      .createTransaction(bobId, courseId, buyPlatformId, META_EVIDENCE_CID, {
+      .connect(sender)
+      .createTransaction(senderId, courseId, buyPlatformId, META_EVIDENCE_CID, {
         value: totalTransactionAmount,
       });
 
     // Sender wants to raise a dispute and pays the arbitration fee
-    await knowledgeLayerEscrow.connect(bob).payArbitrationFeeBySender(transactionId, {
+    await knowledgeLayerEscrow.connect(sender).payArbitrationFeeBySender(transactionId, {
       value: arbitrationCost,
     });
 
@@ -478,11 +486,11 @@ describe('Dispute Resolution, receiver fails to pay arbitration fee on time', fu
     let tx: ContractTransaction;
 
     before(async () => {
-      tx = await knowledgeLayerEscrow.connect(bob).arbitrationFeeTimeout(transactionId);
+      tx = await knowledgeLayerEscrow.connect(sender).arbitrationFeeTimeout(transactionId);
     });
 
     it('The transaction data is updated correctly', async () => {
-      const transaction = await knowledgeLayerEscrow.connect(bob).getTransaction(transactionId);
+      const transaction = await knowledgeLayerEscrow.connect(sender).getTransaction(transactionId);
       expect(transaction.status).to.be.eq(TransactionStatus.Resolved);
       expect(transaction.senderFee).to.be.eq(0);
       expect(transaction.receiverFee).to.be.eq(0);
@@ -494,7 +502,7 @@ describe('Dispute Resolution, receiver fails to pay arbitration fee on time', fu
         .add(arbitrationCost);
 
       await expect(tx).to.changeEtherBalances(
-        [bob.address, knowledgeLayerEscrow.address],
+        [sender.address, knowledgeLayerEscrow.address],
         [totalAmountSent, totalAmountSent.mul(-1)],
       );
     });
@@ -502,8 +510,8 @@ describe('Dispute Resolution, receiver fails to pay arbitration fee on time', fu
 });
 
 describe('Dispute Resolution, sender fails to pay arbitration fee on time', function () {
-  let alice: SignerWithAddress,
-    bob: SignerWithAddress,
+  let sender: SignerWithAddress,
+    receiver: SignerWithAddress,
     carol: SignerWithAddress,
     knowledgeLayerEscrow: KnowledgeLayerEscrow,
     knowledgeLayerArbitrator: KnowledgeLayerArbitrator;
@@ -511,19 +519,19 @@ describe('Dispute Resolution, sender fails to pay arbitration fee on time', func
   const newArbitrationCost = ethers.utils.parseEther('0.015');
 
   before(async () => {
-    [, alice, bob, carol] = await ethers.getSigners();
+    [, sender, receiver, carol] = await ethers.getSigners();
     [, , knowledgeLayerEscrow, knowledgeLayerArbitrator] = await deployAndSetup(ETH_ADDRESS);
 
-    // Create transaction, Bob buys Alice's course
+    // Create transaction, sender buys receiver's course
     const totalTransactionAmount = getTransactionAmountWithFees(transactionAmount);
     await knowledgeLayerEscrow
-      .connect(bob)
-      .createTransaction(bobId, courseId, buyPlatformId, META_EVIDENCE_CID, {
+      .connect(sender)
+      .createTransaction(senderId, courseId, buyPlatformId, META_EVIDENCE_CID, {
         value: totalTransactionAmount,
       });
 
     // Sender wants to raise a dispute and pays the arbitration fee
-    await knowledgeLayerEscrow.connect(bob).payArbitrationFeeBySender(transactionId, {
+    await knowledgeLayerEscrow.connect(sender).payArbitrationFeeBySender(transactionId, {
       value: arbitrationCost,
     });
 
@@ -533,7 +541,7 @@ describe('Dispute Resolution, sender fails to pay arbitration fee on time', func
       .setArbitrationPrice(originPlatformId, newArbitrationCost);
 
     // Receiver pays arbitration fee to open the dispute
-    await knowledgeLayerEscrow.connect(alice).payArbitrationFeeByReceiver(transactionId, {
+    await knowledgeLayerEscrow.connect(receiver).payArbitrationFeeByReceiver(transactionId, {
       value: newArbitrationCost,
     });
 
@@ -545,11 +553,11 @@ describe('Dispute Resolution, sender fails to pay arbitration fee on time', func
     let tx: ContractTransaction;
 
     before(async () => {
-      tx = await knowledgeLayerEscrow.connect(alice).arbitrationFeeTimeout(transactionId);
+      tx = await knowledgeLayerEscrow.connect(receiver).arbitrationFeeTimeout(transactionId);
     });
 
     it('The transaction data is updated correctly', async () => {
-      const transaction = await knowledgeLayerEscrow.connect(bob).getTransaction(transactionId);
+      const transaction = await knowledgeLayerEscrow.connect(sender).getTransaction(transactionId);
       expect(transaction.status).to.be.eq(TransactionStatus.Resolved);
       expect(transaction.senderFee).to.be.eq(0);
       expect(transaction.receiverFee).to.be.eq(0);
@@ -557,7 +565,7 @@ describe('Dispute Resolution, sender fails to pay arbitration fee on time', func
 
     it('The receiver gets escrow funds and parties get arbitration fee reimbursed', async () => {
       await expect(tx).to.changeEtherBalances(
-        [bob.address, alice.address, knowledgeLayerEscrow.address],
+        [sender.address, receiver.address, knowledgeLayerEscrow.address],
         [
           arbitrationCost,
           transactionAmount.add(newArbitrationCost),
@@ -568,32 +576,32 @@ describe('Dispute Resolution, sender fails to pay arbitration fee on time', func
   });
 });
 
-describe.only('Dispute Resolution, arbitrator abstains from giving a ruling', function () {
-  let alice: SignerWithAddress,
-    bob: SignerWithAddress,
+describe('Dispute Resolution, arbitrator abstains from giving a ruling', function () {
+  let sender: SignerWithAddress,
+    receiver: SignerWithAddress,
     carol: SignerWithAddress,
     knowledgeLayerEscrow: KnowledgeLayerEscrow,
     knowledgeLayerArbitrator: KnowledgeLayerArbitrator;
 
   before(async () => {
-    [, alice, bob, carol] = await ethers.getSigners();
+    [, sender, receiver, carol] = await ethers.getSigners();
     [, , knowledgeLayerEscrow, knowledgeLayerArbitrator] = await deployAndSetup(ETH_ADDRESS);
 
-    // Create transaction, Bob buys Alice's course
+    // Create transaction, sender buys receiver's course
     const totalTransactionAmount = getTransactionAmountWithFees(transactionAmount);
     await knowledgeLayerEscrow
-      .connect(bob)
-      .createTransaction(bobId, courseId, buyPlatformId, META_EVIDENCE_CID, {
+      .connect(sender)
+      .createTransaction(senderId, courseId, buyPlatformId, META_EVIDENCE_CID, {
         value: totalTransactionAmount,
       });
 
     // Sender wants to raise a dispute and pays the arbitration fee
-    await knowledgeLayerEscrow.connect(bob).payArbitrationFeeBySender(transactionId, {
+    await knowledgeLayerEscrow.connect(sender).payArbitrationFeeBySender(transactionId, {
       value: arbitrationCost,
     });
 
     // Receiver pays arbitration fee and dispute id created
-    await knowledgeLayerEscrow.connect(alice).payArbitrationFeeByReceiver(transactionId, {
+    await knowledgeLayerEscrow.connect(receiver).payArbitrationFeeByReceiver(transactionId, {
       value: arbitrationCost,
     });
   });
@@ -616,7 +624,7 @@ describe.only('Dispute Resolution, arbitrator abstains from giving a ruling', fu
       const receiverAmount = halfTransactionAmount.add(halfArbitrationCost);
 
       await expect(tx).to.changeEtherBalances(
-        [bob.address, alice.address, knowledgeLayerEscrow.address],
+        [sender.address, receiver.address, knowledgeLayerEscrow.address],
         [senderAmount, receiverAmount, senderAmount.add(receiverAmount).mul(-1)],
       );
     });
