@@ -159,6 +159,9 @@ const escrowTests = (isEth: boolean) => {
         expect(transaction.protocolFee).to.equal(protocolFee);
         expect(transaction.originFee).to.equal(originFee);
         expect(transaction.buyFee).to.equal(buyFee);
+
+        const lastBlockTimestamp = await time.latest();
+        expect(transaction.releasableAt).to.equal(lastBlockTimestamp + courseDisputePeriod);
       });
 
       it('Mints a course token to the buyer', async () => {
