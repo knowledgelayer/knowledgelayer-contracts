@@ -144,20 +144,39 @@ const escrowTests = (isEth: boolean) => {
         });
     });
 
-    it('Updates the releasable balance correctly', async () => {
+    it('The releasable epoch is calculated correctly', async () => {
       const currentEpoch = await knowledgeLayerEscrow.getCurrentEpoch();
-      const transaction = await knowledgeLayerEscrow.connect(bob).getTransaction(transactionId);
-      const releasableEpoch = (await knowledgeLayerEscrow.getEpoch(transaction.releasableAt)).add(
-        1,
-      );
+      const releasableEpoch = await knowledgeLayerEscrow.getReleasableEpoch(transactionId);
+      const expectedReleasableEpoch = currentEpoch.add(courseDisputeEpochs).add(1);
 
-      expect(releasableEpoch).to.be.equal(currentEpoch.add(courseDisputeEpochs).add(1));
+      // TODO: test with non integer number of epochs
+      expect(releasableEpoch).to.be.equal(expectedReleasableEpoch);
+    });
 
+    it('Updates the releasable balance for the epoch correctly', async () => {
+      const releasableEpoch = await knowledgeLayerEscrow.getReleasableEpoch(transactionId);
       const releasableBalance = await knowledgeLayerEscrow.releasableBalanceByEpoch(
         courseId,
         releasableEpoch,
       );
 
+      expect(releasableBalance).to.be.equal(coursePrice);
+    });
+
+    it('The current releasable balance for the course is zero', async () => {
+      const releasableBalance = await knowledgeLayerEscrow.getReleasableBalance(courseId);
+      expect(releasableBalance).to.be.equal(0);
+    });
+  });
+
+  describe('Dispute period expires', async () => {
+    before(async () => {
+      const epochDuration = await knowledgeLayerEscrow.EPOCH_DURATION();
+      await time.increase(courseDisputePeriod.add(epochDuration));
+    });
+
+    it('The current releasable balance for the course is calculated correctly', async () => {
+      const releasableBalance = await knowledgeLayerEscrow.getReleasableBalance(courseId);
       expect(releasableBalance).to.be.equal(coursePrice);
     });
   });

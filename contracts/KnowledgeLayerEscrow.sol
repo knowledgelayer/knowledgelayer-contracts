@@ -292,6 +292,33 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         return getEpoch(block.timestamp);
     }
 
+    /**
+     * @dev Returns the epoch at which a transaction becomes releasable.
+     *      It corresponds to the first epoch after the dispute period expires;
+     *      E.g. if dispute period expires during epoch 3, the releasable epoch will be epoch 4
+     * @param _transactionId Id of the transaction
+     */
+    function getReleasableEpoch(uint256 _transactionId) public view returns (uint256) {
+        Transaction memory transaction = transactions[_transactionId];
+        return getEpoch(transaction.releasableAt) + 1;
+    }
+
+    /**
+     * @dev Returns the amount of funds that can be released to the receiver for a given course
+     * @param _courseId Id of the course.
+     */
+    function getReleasableBalance(uint256 _courseId) public view returns (uint256) {
+        uint256 lastEpoch = lastReleasedEpoch[_courseId];
+        uint256 currentEpoch = getCurrentEpoch();
+        uint256 releasableBalance = 0;
+
+        for (uint256 i = lastEpoch + 1; i <= currentEpoch; i++) {
+            releasableBalance += releasableBalanceByEpoch[_courseId][i];
+        }
+
+        return releasableBalance;
+    }
+
     // =========================== User functions ==============================
 
     /**
@@ -353,7 +380,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
             lastInteraction: block.timestamp
         });
 
-        uint256 releasableEpoch = getEpoch(releasableAt) + 1;
+        uint256 releasableEpoch = getReleasableEpoch(id);
         releasableBalanceByEpoch[_courseId][releasableEpoch] += course.price;
 
         if (course.token != address(0)) {
