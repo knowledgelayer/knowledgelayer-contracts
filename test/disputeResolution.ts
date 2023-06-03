@@ -480,8 +480,8 @@ describe('Dispute Resolution', async () => {
       tx: ContractTransaction;
 
     const initialArbitrationCost = arbitrationCost;
-    const intermediateArbitrationCost = ethers.utils.parseEther('0.012');
-    const finalArbitrationCost = ethers.utils.parseEther('0.011');
+    const intermediateArbitrationCost = ethers.utils.parseEther('0.015');
+    const finalArbitrationCost = ethers.utils.parseEther('0.012');
 
     before(async () => {
       [, sender, receiver, carol] = await ethers.getSigners();
