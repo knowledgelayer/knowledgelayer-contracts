@@ -195,23 +195,21 @@ const escrowTests = (isEth: boolean) => {
       const originPlatformFeeAmount = transactionAmount.mul(originFee).div(FEE_DIVIDER);
       const buyPlatformFeeAmount = transactionAmount.mul(buyFee).div(FEE_DIVIDER);
 
-      const protocolReleasableBalance = await knowledgeLayerEscrow.platformReleasableBalanceByEpoch(
+      const protocolReleasableBalance = await knowledgeLayerEscrow.platformBalanceByEpoch(
         PROTOCOL_INDEX,
-        ETH_ADDRESS,
+        tokenAddress,
         releasableEpoch,
       );
-      const originPlatformReleasableBalance =
-        await knowledgeLayerEscrow.platformReleasableBalanceByEpoch(
-          originPlatformId,
-          ETH_ADDRESS,
-          releasableEpoch,
-        );
-      const buyPlatformReleasableBalance =
-        await knowledgeLayerEscrow.platformReleasableBalanceByEpoch(
-          buyPlatformId,
-          ETH_ADDRESS,
-          releasableEpoch,
-        );
+      const originPlatformReleasableBalance = await knowledgeLayerEscrow.platformBalanceByEpoch(
+        originPlatformId,
+        tokenAddress,
+        releasableEpoch,
+      );
+      const buyPlatformReleasableBalance = await knowledgeLayerEscrow.platformBalanceByEpoch(
+        buyPlatformId,
+        tokenAddress,
+        releasableEpoch,
+      );
 
       expect(protocolReleasableBalance).to.be.equal(protocolFeeAmount);
       expect(originPlatformReleasableBalance).to.be.equal(originPlatformFeeAmount);

@@ -135,7 +135,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
     mapping(uint256 => mapping(uint256 => uint256)) public releasableBalanceByEpoch;
 
     // Amount releasable per each epoch by a platform, for each token (platformId -> token -> epoch -> balance)
-    mapping(uint256 => mapping(address => mapping(uint256 => uint256))) public platformReleasableBalanceByEpoch;
+    mapping(uint256 => mapping(address => mapping(uint256 => uint256))) public platformBalanceByEpoch;
 
     // Last epoch where balance was released for each course (courseId -> epoch)
     mapping(uint256 => uint256) public lastReleasedEpoch;
@@ -389,7 +389,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
 
         knowledgeLayerCourse.buyCourse(_profileId, _courseId);
 
-        _afterCreateTransaction(id, _profileId, course.ownerId, course.platformId, _metaEvidence);
+        _afterCreateTransaction(id, _profileId, course.ownerId, _metaEvidence);
 
         return id;
     }
@@ -414,7 +414,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         // Update balance releasable in batch for the epoch
         releasableBalanceByEpoch[transaction.courseId][releasableEpoch] -= transaction.amount;
 
-        _release(_transactionId, transaction.amount);
+        _release(_transactionId, transaction.amount, false);
     }
 
     /**
@@ -707,7 +707,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         } else if (_ruling == RECEIVER_WINS) {
             transaction.receiverFee = 0;
             receiver.call{value: receiverFee}("");
-            _release(_transactionId, amount);
+            _release(_transactionId, amount, true);
         } else {
             // If no ruling is given split funds in half
             uint256 splitFeeAmount = senderFee / 2;
@@ -717,7 +717,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
             transaction.receiverFee = splitFeeAmount;
 
             _reimburse(_transactionId, splitTransactionAmount);
-            _release(_transactionId, splitTransactionAmount);
+            _release(_transactionId, splitTransactionAmount, true);
 
             sender.call{value: splitFeeAmount}("");
             receiver.call{value: splitFeeAmount}("");
@@ -733,14 +733,12 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
      * @param _transactionId The Id of the transavtion
      * @param _senderId The KnowledgeLayer Id of the sender
      * @param _receiverId The KnowledgeLayer Id of the receiver
-     * @param _originPlatformId The platform id where the course was created
      * @param _metaEvidence The meta evidence of the transaction
      */
     function _afterCreateTransaction(
         uint256 _transactionId,
         uint256 _senderId,
         uint256 _receiverId,
-        uint256 _originPlatformId,
         string memory _metaEvidence
     ) internal {
         Transaction storage transaction = transactions[_transactionId];
@@ -748,13 +746,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         uint256 releasableEpoch = getReleasableEpoch(_transactionId);
         releasableBalanceByEpoch[transaction.courseId][releasableEpoch] += transaction.amount;
 
-        uint256 protocolFeeAmount = (transaction.protocolFee * transaction.amount) / FEE_DIVIDER;
-        uint256 originFeeAmount = (transaction.originFee * transaction.amount) / FEE_DIVIDER;
-        uint256 buyFeeAmount = (transaction.buyFee * transaction.amount) / FEE_DIVIDER;
-
-        platformReleasableBalanceByEpoch[PROTOCOL_INDEX][transaction.token][releasableEpoch] += protocolFeeAmount;
-        platformReleasableBalanceByEpoch[_originPlatformId][transaction.token][releasableEpoch] += originFeeAmount;
-        platformReleasableBalanceByEpoch[transaction.buyPlatformId][transaction.token][releasableEpoch] += buyFeeAmount;
+        _distributeFees(_transactionId, transaction.amount, releasableEpoch);
 
         emit TransactionCreated(
             _transactionId,
@@ -777,9 +769,13 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
      * @dev The release of an amount will also trigger the release of the fees to the platform's balances & the protocol fees.
      * @param _transactionId The transaction id
      * @param _amount The amount to release
+     * @param _updateFees Whether to update platform fee balances or not
      */
-    function _release(uint256 _transactionId, uint256 _amount) private {
-        _distributeFees(_transactionId, _amount);
+    function _release(uint256 _transactionId, uint256 _amount, bool _updateFees) private {
+        if (_updateFees) {
+            uint256 currentEpoch = getCurrentEpoch();
+            _distributeFees(_transactionId, _amount, currentEpoch + 1);
+        }
 
         Transaction storage transaction = transactions[_transactionId];
         _transferBalance(transaction.receiver, transaction.token, _amount);
@@ -809,7 +805,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         return _amount + ((_amount * (protocolFee + _originFee + _buyFee)) / FEE_DIVIDER);
     }
 
-    function _distributeFees(uint256 _transactionId, uint256 _releasedAmount) private {
+    function _distributeFees(uint256 _transactionId, uint256 _releasedAmount, uint256 _epoch) private {
         Transaction storage transaction = transactions[_transactionId];
         IKnowledgeLayerCourse.Course memory course = knowledgeLayerCourse.getCourse(transaction.courseId);
 
@@ -817,9 +813,9 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         uint256 originFeeAmount = (transaction.originFee * _releasedAmount) / FEE_DIVIDER;
         uint256 buyFeeAmount = (transaction.buyFee * _releasedAmount) / FEE_DIVIDER;
 
-        platformBalance[PROTOCOL_INDEX][transaction.token] += protocolFeeAmount;
-        platformBalance[course.platformId][transaction.token] += originFeeAmount;
-        platformBalance[transaction.buyPlatformId][transaction.token] += buyFeeAmount;
+        platformBalanceByEpoch[PROTOCOL_INDEX][transaction.token][_epoch] += protocolFeeAmount;
+        platformBalanceByEpoch[course.platformId][transaction.token][_epoch] += originFeeAmount;
+        platformBalanceByEpoch[transaction.buyPlatformId][transaction.token][_epoch] += buyFeeAmount;
 
         emit OriginFeeReleased(course.platformId, transaction.courseId, transaction.token, originFeeAmount);
         emit BuyFeeReleased(transaction.buyPlatformId, transaction.courseId, transaction.token, buyFeeAmount);

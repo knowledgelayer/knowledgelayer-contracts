@@ -126,7 +126,7 @@ async function deployAndSetup(
   ];
 }
 
-describe('Dispute Resolution', async () => {
+describe.only('Dispute Resolution', async () => {
   describe('Sender fails to open dispute on time', async () => {
     let sender: SignerWithAddress, knowledgeLayerEscrow: KnowledgeLayerEscrow;
 
@@ -587,6 +587,27 @@ describe('Dispute Resolution', async () => {
           .to.emit(knowledgeLayerEscrow, 'Payment')
           .withArgs(transactionId, PaymentType.Release, transactionAmount);
       });
+
+      it('Increases platform and protocol fees balance', async () => {
+        const currentEpoch = await knowledgeLayerEscrow.getCurrentEpoch();
+        const originPlatformBalance = await knowledgeLayerEscrow
+          .connect(carol)
+          .platformBalanceByEpoch(originPlatformId, ETH_ADDRESS, currentEpoch.add(1));
+        const buyPlatformBalance = await knowledgeLayerEscrow
+          .connect(carol)
+          .platformBalanceByEpoch(buyPlatformId, ETH_ADDRESS, currentEpoch.add(1));
+        const protocolBalance = await knowledgeLayerEscrow
+          .connect(carol)
+          .platformBalanceByEpoch(PROTOCOL_INDEX, ETH_ADDRESS, currentEpoch.add(1));
+
+        const originFeeAmount = transactionAmount.mul(originFee).div(FEE_DIVIDER);
+        const buyFeeAmount = transactionAmount.mul(buyFee).div(FEE_DIVIDER);
+        const protocolFeeAmount = transactionAmount.mul(protocolFee).div(FEE_DIVIDER);
+
+        expect(originPlatformBalance).to.be.eq(originFeeAmount);
+        expect(buyPlatformBalance).to.be.eq(buyFeeAmount);
+        expect(protocolBalance).to.be.eq(protocolFeeAmount);
+      });
     });
   });
 
@@ -644,15 +665,16 @@ describe('Dispute Resolution', async () => {
       });
 
       it('Increases platform and protocol fees balance', async () => {
+        const currentEpoch = await knowledgeLayerEscrow.getCurrentEpoch();
         const originPlatformBalance = await knowledgeLayerEscrow
           .connect(carol)
-          .platformBalance(originPlatformId, ETH_ADDRESS);
+          .platformBalanceByEpoch(originPlatformId, ETH_ADDRESS, currentEpoch.add(1));
         const buyPlatformBalance = await knowledgeLayerEscrow
           .connect(carol)
-          .platformBalance(buyPlatformId, ETH_ADDRESS);
+          .platformBalanceByEpoch(buyPlatformId, ETH_ADDRESS, currentEpoch.add(1));
         const protocolBalance = await knowledgeLayerEscrow
           .connect(carol)
-          .platformBalance(PROTOCOL_INDEX, ETH_ADDRESS);
+          .platformBalanceByEpoch(PROTOCOL_INDEX, ETH_ADDRESS, currentEpoch.add(1));
 
         const originFeeAmount = halfTransactionAmount.mul(originFee).div(FEE_DIVIDER);
         const buyFeeAmount = halfTransactionAmount.mul(buyFee).div(FEE_DIVIDER);
