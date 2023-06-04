@@ -148,7 +148,7 @@ describe('Dispute Resolution', async () => {
 
     it("Can't dispute transaction if dispute period is expired", async () => {
       const tx = knowledgeLayerEscrow.connect(sender).payArbitrationFeeBySender(transactionId);
-      await expect(tx).to.be.revertedWith('Transaction not disputable');
+      await expect(tx).to.be.revertedWith('Dispute period has expired');
     });
   });
 

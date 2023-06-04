@@ -463,7 +463,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         require(address(transaction.arbitrator) != address(0), "Arbitrator not set");
         require(transaction.status <= TransactionStatus.DisputeCreated, "Dispute already created");
         require(_msgSender() == transaction.sender, "The caller must be the sender");
-        require(block.timestamp < transaction.releasableAt, "Transaction not disputable");
+        require(block.timestamp < transaction.releasableAt, "Dispute period has expired");
 
         uint256 arbitrationCost = transaction.arbitrator.arbitrationCost(transaction.arbitratorExtraData);
         transaction.senderFee += msg.value;
