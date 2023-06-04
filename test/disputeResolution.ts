@@ -127,6 +127,31 @@ async function deployAndSetup(
 }
 
 describe('Dispute Resolution', async () => {
+  describe('Sender fails to open dispute on time', async () => {
+    let sender: SignerWithAddress, knowledgeLayerEscrow: KnowledgeLayerEscrow;
+
+    before(async () => {
+      [, sender] = await ethers.getSigners();
+      [, , knowledgeLayerEscrow] = await deployAndSetup(ETH_ADDRESS);
+
+      // Create transaction, sender buys receiver's course
+      const totalTransactionAmount = getTransactionAmountWithFees(transactionAmount);
+      await knowledgeLayerEscrow
+        .connect(sender)
+        .createTransaction(senderId, courseId, buyPlatformId, META_EVIDENCE_CID, {
+          value: totalTransactionAmount,
+        });
+
+      // Dispute period expires
+      await time.increase(courseDisputePeriod);
+    });
+
+    it("Can't dispute transaction if dispute period is expired", async () => {
+      const tx = knowledgeLayerEscrow.connect(sender).payArbitrationFeeBySender(transactionId);
+      await expect(tx).to.be.revertedWith('Transaction not disputable');
+    });
+  });
+
   describe('Sender wins', () => {
     let sender: SignerWithAddress,
       receiver: SignerWithAddress,
