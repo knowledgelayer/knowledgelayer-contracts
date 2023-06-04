@@ -105,30 +105,32 @@ const escrowTests = (isEth: boolean) => {
     );
   });
 
-  it('Epoch beginning is set correctly', async () => {
-    const deployBlockHash = knowledgeLayerEscrow.deployTransaction.blockHash;
-    if (!deployBlockHash) throw new Error();
-    const deployBlock = await ethers.provider.getBlock(deployBlockHash);
+  describe('Epoch calculation', async () => {
+    it('Epoch beginning is set correctly', async () => {
+      const deployBlockHash = knowledgeLayerEscrow.deployTransaction.blockHash;
+      if (!deployBlockHash) throw new Error();
+      const deployBlock = await ethers.provider.getBlock(deployBlockHash);
 
-    expect(epochBeginning).to.be.equal(deployBlock.timestamp);
+      expect(epochBeginning).to.be.equal(deployBlock.timestamp);
 
-    const currentEpoch = await knowledgeLayerEscrow.getCurrentEpoch();
-    expect(currentEpoch).to.be.equal(0);
-  });
+      const currentEpoch = await knowledgeLayerEscrow.getCurrentEpoch();
+      expect(currentEpoch).to.be.equal(0);
+    });
 
-  it('Current epoch is calculated correctly', async () => {
-    const epochDuration = await knowledgeLayerEscrow.EPOCH_DURATION();
-    const epochsIncrease = 3;
-    await time.increase(epochDuration.mul(epochsIncrease));
+    it('Current epoch is calculated correctly', async () => {
+      const epochDuration = await knowledgeLayerEscrow.EPOCH_DURATION();
+      const epochsIncrease = 3;
+      await time.increase(epochDuration.mul(epochsIncrease));
 
-    const currentEpoch = await knowledgeLayerEscrow.getCurrentEpoch();
-    expect(currentEpoch).to.be.equal(epochsIncrease);
+      const currentEpoch = await knowledgeLayerEscrow.getCurrentEpoch();
+      expect(currentEpoch).to.be.equal(epochsIncrease);
 
-    const epochsIncrease2 = 4.5;
-    await time.increase(epochDuration.mul(epochsIncrease2 * 2).div(2)); // mul and div by 2 to avoid overflow
-    const currentEpoch2 = await knowledgeLayerEscrow.getCurrentEpoch();
+      const epochsIncrease2 = 4.5;
+      await time.increase(epochDuration.mul(epochsIncrease2 * 2).div(2)); // mul and div by 2 to avoid overflow
+      const currentEpoch2 = await knowledgeLayerEscrow.getCurrentEpoch();
 
-    expect(currentEpoch2).to.be.equal(epochsIncrease + Math.floor(epochsIncrease2));
+      expect(currentEpoch2).to.be.equal(epochsIncrease + Math.floor(epochsIncrease2));
+    });
   });
 
   describe('Create first transaction', async () => {
