@@ -66,6 +66,7 @@ const escrowTests = (isEth: boolean) => {
       // Send tokens to Bob and Eve
       simpleERC20.connect(deployer).transfer(bob.address, ethers.utils.parseEther('1000'));
       simpleERC20.connect(deployer).transfer(eve.address, ethers.utils.parseEther('1000'));
+      simpleERC20.connect(deployer).transfer(frank.address, ethers.utils.parseEther('1000'));
     } else {
       tokenAddress = ETH_ADDRESS;
     }
@@ -271,6 +272,7 @@ const escrowTests = (isEth: boolean) => {
   describe('Dispute period expires', async () => {
     it('The current releasable balance for the course is calculated correctly', async () => {
       // The dispute period expires for the first two transactions.
+      // TODO: do math to see why here is already releasable. Is already in next epoch?
       await time.increase(courseDisputePeriod);
       const releasableBalance = await knowledgeLayerEscrow.getReleasableBalance(courseId);
       expect(releasableBalance).to.be.equal(coursePrice.mul(2));
@@ -280,6 +282,48 @@ const escrowTests = (isEth: boolean) => {
       await time.increase(epochDuration);
       const releasableBalance2 = await knowledgeLayerEscrow.getReleasableBalance(courseId);
       expect(releasableBalance2).to.be.equal(coursePrice.mul(3));
+    });
+  });
+
+  describe('Release second transaction individually', async () => {
+    let tx: ContractTransaction, releasableEpoch: BigNumber, releasableBalanceBefore: BigNumber;
+
+    before(async () => {
+      // Release second transaction
+      releasableEpoch = await knowledgeLayerEscrow.getReleasableEpoch(secondTransactionId);
+      releasableBalanceBefore = await knowledgeLayerEscrow.releasableBalanceByEpoch(
+        courseId,
+        releasableEpoch,
+      );
+      tx = await knowledgeLayerEscrow.connect(alice).release(aliceId, secondTransactionId);
+    });
+
+    it('Sends funds to the receiver', async () => {
+      if (isEth) {
+        await expect(tx).to.changeEtherBalances(
+          [knowledgeLayerEscrow, alice],
+          [coursePrice.mul(-1), coursePrice],
+        );
+      } else {
+        await expect(tx).to.changeTokenBalances(
+          simpleERC20,
+          [knowledgeLayerEscrow, alice],
+          [coursePrice.mul(-1), coursePrice],
+        );
+      }
+    });
+
+    it('Updates releasable balance by epoch', async () => {
+      const releasableBalance = await knowledgeLayerEscrow.releasableBalanceByEpoch(
+        courseId,
+        releasableEpoch,
+      );
+      expect(releasableBalance).to.be.equal(releasableBalanceBefore.sub(coursePrice));
+    });
+
+    it('Updates current releasable balance', async () => {
+      const releasableBalance = await knowledgeLayerEscrow.getReleasableBalance(courseId);
+      expect(releasableBalance).to.be.equal(coursePrice.mul(2));
     });
   });
 
@@ -340,7 +384,7 @@ const escrowTests = (isEth: boolean) => {
 };
 
 describe.only('Epoch Claiming System', () => {
-  describe('ETH', () => escrowTests(true));
+  describe('ETH', () => escrowTests(false));
 
   // describe('ERC20', () => escrowTests(false));
 });

@@ -407,8 +407,12 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         require(transaction.status == TransactionStatus.NoDispute, "Transaction is in dispute");
         require(block.timestamp >= transaction.releasableAt, "Not yet releasable");
 
+        // Check transaction hasn't already been released in batch
         uint256 releasableEpoch = getReleasableEpoch(_transactionId);
         require(lastReleasedEpoch[transaction.courseId] < releasableEpoch, "Transaction already released");
+
+        // Update balance releasable in batch for the epoch
+        releasableBalanceByEpoch[transaction.courseId][releasableEpoch] -= transaction.amount;
 
         _release(_transactionId, transaction.amount);
     }
@@ -422,14 +426,16 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         require(course.ownerId == _profileId, "Not the owner");
 
         uint256 currentEpoch = getCurrentEpoch();
-        uint256 releaseAmount = getReleasableBalance(_courseId);
+        uint256 releasableAmount = getReleasableBalance(_courseId);
 
         // TODO: Distribute fees
 
         address receiver = knowledgeLayerId.ownerOf(_profileId);
-        _transferBalance(receiver, course.token, releaseAmount);
+        _transferBalance(receiver, course.token, releasableAmount);
 
         lastReleasedEpoch[_courseId] = currentEpoch;
+
+        // TODO: Emit event
     }
 
     /**
