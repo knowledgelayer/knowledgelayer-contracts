@@ -379,6 +379,11 @@ const escrowTests = (isEth: boolean) => {
         const tx = knowledgeLayerEscrow.connect(alice).release(aliceId, firstTransactionId);
         await expect(tx).to.be.revertedWith('Transaction already released');
       });
+
+      it("Can't release all funds again", async () => {
+        const tx = knowledgeLayerEscrow.connect(alice).releaseAll(aliceId, courseId);
+        await expect(tx).to.be.revertedWith('No balance to release');
+      });
     });
   });
 };

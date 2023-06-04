@@ -428,6 +428,8 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         uint256 currentEpoch = getCurrentEpoch();
         uint256 releasableAmount = getReleasableBalance(_courseId);
 
+        require(releasableAmount > 0, "No balance to release");
+
         // TODO: Distribute fees
 
         address receiver = knowledgeLayerId.ownerOf(_profileId);
