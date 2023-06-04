@@ -134,6 +134,9 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
     // Amount that is releasable per each epoch per course (courseId -> epoch -> balance)
     mapping(uint256 => mapping(uint256 => uint256)) public releasableBalanceByEpoch;
 
+    // Amount releasable per each epoch by a platform, for each token (platformId -> token -> epoch -> balance)
+    mapping(uint256 => mapping(address => mapping(uint256 => uint256))) public platformReleasableBalanceByEpoch;
+
     // Last epoch where balance was released for each course (courseId -> epoch)
     mapping(uint256 => uint256) public lastReleasedEpoch;
 
@@ -380,16 +383,13 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
             lastInteraction: block.timestamp
         });
 
-        uint256 releasableEpoch = getReleasableEpoch(id);
-        releasableBalanceByEpoch[_courseId][releasableEpoch] += course.price;
-
         if (course.token != address(0)) {
             IERC20(course.token).safeTransferFrom(sender, address(this), totalAmount);
         }
 
         knowledgeLayerCourse.buyCourse(_profileId, _courseId);
 
-        _afterCreateTransaction(id, _profileId, course.ownerId, _metaEvidence);
+        _afterCreateTransaction(id, _profileId, course.ownerId, course.platformId, _metaEvidence);
 
         return id;
     }
@@ -729,19 +729,32 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
     // =========================== Private functions ==============================
 
     /**
-     * @notice Emits the events related to the creation of a transaction.
+     * @notice Updates releasable balances and emits the events related to the creation of a transaction.
      * @param _transactionId The Id of the transavtion
      * @param _senderId The KnowledgeLayer Id of the sender
      * @param _receiverId The KnowledgeLayer Id of the receiver
+     * @param _originPlatformId The platform id where the course was created
      * @param _metaEvidence The meta evidence of the transaction
      */
     function _afterCreateTransaction(
         uint256 _transactionId,
         uint256 _senderId,
         uint256 _receiverId,
+        uint256 _originPlatformId,
         string memory _metaEvidence
     ) internal {
         Transaction storage transaction = transactions[_transactionId];
+
+        uint256 releasableEpoch = getReleasableEpoch(_transactionId);
+        releasableBalanceByEpoch[transaction.courseId][releasableEpoch] += transaction.amount;
+
+        uint256 protocolFeeAmount = (transaction.protocolFee * transaction.amount) / FEE_DIVIDER;
+        uint256 originFeeAmount = (transaction.originFee * transaction.amount) / FEE_DIVIDER;
+        uint256 buyFeeAmount = (transaction.buyFee * transaction.amount) / FEE_DIVIDER;
+
+        platformReleasableBalanceByEpoch[PROTOCOL_INDEX][transaction.token][releasableEpoch] += protocolFeeAmount;
+        platformReleasableBalanceByEpoch[_originPlatformId][transaction.token][releasableEpoch] += originFeeAmount;
+        platformReleasableBalanceByEpoch[transaction.buyPlatformId][transaction.token][releasableEpoch] += buyFeeAmount;
 
         emit TransactionCreated(
             _transactionId,
