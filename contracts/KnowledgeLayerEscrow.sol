@@ -122,9 +122,6 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
     // Protocol fee per sale (percentage per 10,000, upgradable)
     uint16 public protocolFee;
 
-    // Platform id to balance accumulated for fees for each token
-    mapping(uint256 => mapping(address => uint256)) public platformBalance;
-
     // Address which will receive the protocol fees
     address payable public protocolTreasuryAddress;
 
@@ -139,6 +136,9 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
 
     // Last epoch where balance was released for each course (courseId -> epoch)
     mapping(uint256 => uint256) public lastReleasedEpoch;
+
+    // Last epoch where balance was claimed by a platform, for each token (courseId -> token -> epoch)
+    mapping(uint256 => mapping(address => uint256)) public platformLastClaimedEpoch;
 
     // Timestamp of when the first epoch started
     uint256 public epochBeginning;
@@ -322,6 +322,23 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         return releasableBalance;
     }
 
+    /**
+     * @dev Returns the balance that can be claimed by a platform for a given course
+     * @param _platformId Id of the platform
+     * @param _tokenAddress Address of the token
+     */
+    function getPlatformClaimableBalance(uint256 _platformId, address _tokenAddress) public view returns (uint256) {
+        uint256 lastEpoch = platformLastClaimedEpoch[_platformId][_tokenAddress];
+        uint256 currentEpoch = getCurrentEpoch();
+        uint256 claimableBalance = 0;
+
+        for (uint256 i = lastEpoch + 1; i <= currentEpoch; i++) {
+            claimableBalance += platformBalanceByEpoch[_platformId][_tokenAddress][i];
+        }
+
+        return claimableBalance;
+    }
+
     // =========================== User functions ==============================
 
     /**
@@ -425,16 +442,13 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         IKnowledgeLayerCourse.Course memory course = knowledgeLayerCourse.getCourse(_courseId);
         require(course.ownerId == _profileId, "Not the owner");
 
-        uint256 currentEpoch = getCurrentEpoch();
         uint256 releasableAmount = getReleasableBalance(_courseId);
-
         require(releasableAmount > 0, "No balance to release");
-
-        // TODO: Distribute fees
 
         address receiver = knowledgeLayerId.ownerOf(_profileId);
         _transferBalance(receiver, course.token, releasableAmount);
 
+        uint256 currentEpoch = getCurrentEpoch();
         lastReleasedEpoch[_courseId] = currentEpoch;
 
         // TODO: Emit event
@@ -593,11 +607,13 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
             recipient = payable(knowledgeLayerPlatformId.ownerOf(_platformId));
         }
 
-        uint256 amount = platformBalance[_platformId][_tokenAddress];
-        require(amount > 0, "Nothing to claim");
-        platformBalance[_platformId][_tokenAddress] = 0;
+        uint256 claimableBalance = getPlatformClaimableBalance(_platformId, _tokenAddress);
+        require(claimableBalance > 0, "No balance to claim");
 
-        _transferBalance(recipient, _tokenAddress, amount);
+        _transferBalance(recipient, _tokenAddress, claimableBalance);
+
+        uint256 currentEpoch = getCurrentEpoch();
+        platformLastClaimedEpoch[_platformId][_tokenAddress] = currentEpoch;
     }
 
     // =========================== Arbitrator functions ==============================

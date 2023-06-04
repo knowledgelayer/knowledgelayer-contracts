@@ -278,92 +278,135 @@ const escrowTests = (isEth: boolean) => {
     });
   });
 
-  // describe('Claim platform fees', async () => {
-  //   it("Owner can't claim platform fees", async () => {
-  //     await expect(
-  //       knowledgeLayerEscrow.connect(deployer).claim(originPlatformId, tokenAddress),
-  //     ).to.be.revertedWith('Access denied');
-  //   });
+  describe('Claim platform fees', async () => {
+    it("Owner can't claim platform fees", async () => {
+      await expect(
+        knowledgeLayerEscrow.connect(deployer).claim(originPlatformId, tokenAddress),
+      ).to.be.revertedWith('Access denied');
+    });
 
-  //   describe('Successfull claim of funds by owner', async () => {
-  //     let tx: ContractTransaction;
-  //     let originPlatformBalance: BigNumber;
+    describe('Successfull claim of funds by owner', async () => {
+      let tx: ContractTransaction, originPlatformBalance: BigNumber, currentEpoch: BigNumber;
 
-  //     before(async () => {
-  //       originPlatformBalance = await knowledgeLayerEscrow.platformBalance(
-  //         originPlatformId,
-  //         tokenAddress,
-  //       );
+      before(async () => {
+        // Advance time to next epoch so that platform fees become claimable
+        const epochDuration = await knowledgeLayerEscrow.EPOCH_DURATION();
+        await time.increase(epochDuration);
 
-  //       // Carol claims platform fees
-  //       tx = await knowledgeLayerEscrow.connect(carol).claim(originPlatformId, tokenAddress);
-  //       await tx.wait();
-  //     });
+        currentEpoch = await knowledgeLayerEscrow.getCurrentEpoch();
+        originPlatformBalance = await knowledgeLayerEscrow.platformBalanceByEpoch(
+          originPlatformId,
+          tokenAddress,
+          currentEpoch,
+        );
 
-  //     it('Sends funds to the platform owner', async () => {
-  //       if (isEth) {
-  //         await expect(tx).to.changeEtherBalances(
-  //           [carol, knowledgeLayerEscrow],
-  //           [originPlatformBalance, originPlatformBalance.mul(-1)],
-  //         );
-  //       } else {
-  //         await expect(tx).to.changeTokenBalances(
-  //           simpleERC20,
-  //           [carol, knowledgeLayerEscrow],
-  //           [originPlatformBalance, originPlatformBalance.mul(-1)],
-  //         );
-  //       }
-  //     });
+        // Carol claims platform fees
+        tx = await knowledgeLayerEscrow.connect(carol).claim(originPlatformId, tokenAddress);
+        await tx.wait();
+      });
 
-  //     it('Updates the platform balance', async () => {
-  //       const originPlatformBalance = await knowledgeLayerEscrow.platformBalance(
-  //         originPlatformId,
-  //         tokenAddress,
-  //       );
-  //       expect(originPlatformBalance).to.equal(0);
-  //     });
-  //   });
-  // });
+      it('Sends funds to the platform owner', async () => {
+        if (isEth) {
+          await expect(tx).to.changeEtherBalances(
+            [carol, knowledgeLayerEscrow],
+            [originPlatformBalance, originPlatformBalance.mul(-1)],
+          );
+        } else {
+          await expect(tx).to.changeTokenBalances(
+            simpleERC20,
+            [carol, knowledgeLayerEscrow],
+            [originPlatformBalance, originPlatformBalance.mul(-1)],
+          );
+        }
+      });
 
-  // describe('Claim protocol fees', async () => {
-  //   let tx: ContractTransaction;
-  //   let protocolBalance: BigNumber;
+      it('Claimable balance becomes 0', async () => {
+        const claimableBalance = await knowledgeLayerEscrow.getPlatformClaimableBalance(
+          originPlatformId,
+          tokenAddress,
+        );
+        expect(claimableBalance).to.equal(0);
+      });
 
-  //   before(async () => {
-  //     protocolBalance = await knowledgeLayerEscrow.platformBalance(PROTOCOL_INDEX, tokenAddress);
+      // it('Updates the platform balance', async () => {
+      //   const originPlatformBalance = await knowledgeLayerEscrow.platformBalanceByEpoch(
+      //     originPlatformId,
+      //     tokenAddress,
+      //     currentEpoch,
+      //   );
+      //   expect(originPlatformBalance).to.equal(0);
+      // });
 
-  //     // Owner claims protocol fees
-  //     tx = await knowledgeLayerEscrow.connect(deployer).claim(PROTOCOL_INDEX, tokenAddress);
-  //     await tx.wait();
-  //   });
+      it('Updates the last claimed epoch', async () => {
+        const lastClaimedEpoch = await knowledgeLayerEscrow.platformLastClaimedEpoch(
+          originPlatformId,
+          tokenAddress,
+        );
+        expect(lastClaimedEpoch).to.equal(currentEpoch);
+      });
+    });
+  });
 
-  //   it('Sends funds to the platform owner', async () => {
-  //     const protocolTreasuryAddress = await knowledgeLayerEscrow.protocolTreasuryAddress();
+  describe('Claim protocol fees', async () => {
+    let tx: ContractTransaction, protocolBalance: BigNumber, currentEpoch: BigNumber;
 
-  //     if (isEth) {
-  //       await expect(tx).to.changeEtherBalances(
-  //         [protocolTreasuryAddress, knowledgeLayerEscrow],
-  //         [protocolBalance, protocolBalance.mul(-1)],
-  //       );
-  //     } else {
-  //       await expect(tx).to.changeTokenBalances(
-  //         simpleERC20,
-  //         [protocolTreasuryAddress, knowledgeLayerEscrow],
-  //         [protocolBalance, protocolBalance.mul(-1)],
-  //       );
-  //     }
-  //   });
+    before(async () => {
+      currentEpoch = await knowledgeLayerEscrow.getCurrentEpoch();
+      protocolBalance = await knowledgeLayerEscrow.platformBalanceByEpoch(
+        PROTOCOL_INDEX,
+        tokenAddress,
+        currentEpoch,
+      );
 
-  //   it('Updates the protocol balance', async () => {
-  //     const protocolBalance = await knowledgeLayerEscrow.platformBalance(
-  //       PROTOCOL_INDEX,
-  //       tokenAddress,
-  //     );
-  //     expect(protocolBalance).to.equal(0);
-  //   });
-  // });
+      // Owner claims protocol fees
+      tx = await knowledgeLayerEscrow.connect(deployer).claim(PROTOCOL_INDEX, tokenAddress);
+      await tx.wait();
+    });
 
-  describe('Update protocool fee', async () => {
+    it('Sends funds to the platform owner', async () => {
+      const protocolTreasuryAddress = await knowledgeLayerEscrow.protocolTreasuryAddress();
+
+      if (isEth) {
+        await expect(tx).to.changeEtherBalances(
+          [protocolTreasuryAddress, knowledgeLayerEscrow],
+          [protocolBalance, protocolBalance.mul(-1)],
+        );
+      } else {
+        await expect(tx).to.changeTokenBalances(
+          simpleERC20,
+          [protocolTreasuryAddress, knowledgeLayerEscrow],
+          [protocolBalance, protocolBalance.mul(-1)],
+        );
+      }
+    });
+
+    it('Claimable balance becomes 0', async () => {
+      const claimableBalance = await knowledgeLayerEscrow.getPlatformClaimableBalance(
+        PROTOCOL_INDEX,
+        tokenAddress,
+      );
+      expect(claimableBalance).to.equal(0);
+    });
+
+    // it('Updates the protocol balance', async () => {
+    //   const protocolBalance = await knowledgeLayerEscrow.platformBalanceByEpoch(
+    //     PROTOCOL_INDEX,
+    //     tokenAddress,
+    //     currentEpoch,
+    //   );
+    //   expect(protocolBalance).to.equal(0);
+    // });
+
+    it('Updates the last claimed epoch', async () => {
+      const lastClaimedEpoch = await knowledgeLayerEscrow.platformLastClaimedEpoch(
+        PROTOCOL_INDEX,
+        tokenAddress,
+      );
+      expect(lastClaimedEpoch).to.equal(currentEpoch);
+    });
+  });
+
+  describe('Update protocol fee', async () => {
     const newProtocolFee = 200;
 
     it("Can't update origin fee if not owner", async () => {
