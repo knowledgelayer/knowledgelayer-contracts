@@ -328,15 +328,6 @@ const escrowTests = (isEth: boolean) => {
         expect(claimableBalance).to.equal(0);
       });
 
-      // it('Updates the platform balance', async () => {
-      //   const originPlatformBalance = await knowledgeLayerEscrow.platformBalanceByEpoch(
-      //     originPlatformId,
-      //     tokenAddress,
-      //     currentEpoch,
-      //   );
-      //   expect(originPlatformBalance).to.equal(0);
-      // });
-
       it('Updates the last claimed epoch', async () => {
         const lastClaimedEpoch = await knowledgeLayerEscrow.platformLastClaimedEpoch(
           originPlatformId,
@@ -387,15 +378,6 @@ const escrowTests = (isEth: boolean) => {
       );
       expect(claimableBalance).to.equal(0);
     });
-
-    // it('Updates the protocol balance', async () => {
-    //   const protocolBalance = await knowledgeLayerEscrow.platformBalanceByEpoch(
-    //     PROTOCOL_INDEX,
-    //     tokenAddress,
-    //     currentEpoch,
-    //   );
-    //   expect(protocolBalance).to.equal(0);
-    // });
 
     it('Updates the last claimed epoch', async () => {
       const lastClaimedEpoch = await knowledgeLayerEscrow.platformLastClaimedEpoch(

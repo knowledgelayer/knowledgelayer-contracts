@@ -126,7 +126,7 @@ async function deployAndSetup(
   ];
 }
 
-describe.only('Dispute Resolution', async () => {
+describe('Dispute Resolution', async () => {
   describe('Sender fails to open dispute on time', async () => {
     let sender: SignerWithAddress, knowledgeLayerEscrow: KnowledgeLayerEscrow;
 

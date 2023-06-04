@@ -19,7 +19,7 @@ import {
 } from '../utils/constants';
 import { expect } from 'chai';
 
-describe.only('Full Workflow', () => {
+describe('Full Workflow', () => {
   let deployer: SignerWithAddress,
     alice: SignerWithAddress,
     bob: SignerWithAddress,

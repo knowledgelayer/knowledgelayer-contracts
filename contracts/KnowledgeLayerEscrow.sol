@@ -128,16 +128,16 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
     // One-to-one relationship between the dispute and the transaction.
     mapping(uint256 => uint256) public disputeIDtoTransactionID;
 
-    // Amount that is releasable per each epoch per course (courseId -> epoch -> balance)
-    mapping(uint256 => mapping(uint256 => uint256)) public releasableBalanceByEpoch;
+    // Amount that is releasable per each epoch per course (profileId -> token -> epoch -> balance)
+    mapping(uint256 => mapping(address => mapping(uint256 => uint256))) public releasableBalanceByEpoch;
 
     // Amount releasable per each epoch by a platform, for each token (platformId -> token -> epoch -> balance)
     mapping(uint256 => mapping(address => mapping(uint256 => uint256))) public platformBalanceByEpoch;
 
-    // Last epoch where balance was released for each course (courseId -> epoch)
-    mapping(uint256 => uint256) public lastReleasedEpoch;
+    // Last epoch where balance was released bya user, for each token (profileId -> token -> epoch)
+    mapping(uint256 => mapping(address => uint256)) public lastReleasedEpoch;
 
-    // Last epoch where balance was claimed by a platform, for each token (courseId -> token -> epoch)
+    // Last epoch where balance was claimed by a platform, for each token (platformId -> token -> epoch)
     mapping(uint256 => mapping(address => uint256)) public platformLastClaimedEpoch;
 
     // Timestamp of when the first epoch started
@@ -307,23 +307,24 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
     }
 
     /**
-     * @dev Returns the amount of funds that can be released to the receiver for a given course
-     * @param _courseId Id of the course.
+     * @dev Returns the amount of funds that can be released by a user for a given token
+     * @param _profileId KnowledgeLayer Id of the user
+     * @param _tokenAddress Address of the token
      */
-    function getReleasableBalance(uint256 _courseId) public view returns (uint256) {
-        uint256 lastEpoch = lastReleasedEpoch[_courseId];
+    function getReleasableBalance(uint256 _profileId, address _tokenAddress) public view returns (uint256) {
+        uint256 lastEpoch = lastReleasedEpoch[_profileId][_tokenAddress];
         uint256 currentEpoch = getCurrentEpoch();
         uint256 releasableBalance = 0;
 
         for (uint256 i = lastEpoch + 1; i <= currentEpoch; i++) {
-            releasableBalance += releasableBalanceByEpoch[_courseId][i];
+            releasableBalance += releasableBalanceByEpoch[_profileId][_tokenAddress][i];
         }
 
         return releasableBalance;
     }
 
     /**
-     * @dev Returns the balance that can be claimed by a platform for a given course
+     * @dev Returns the balance that can be claimed by a platform for a given token
      * @param _platformId Id of the platform
      * @param _tokenAddress Address of the token
      */
@@ -426,30 +427,28 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
 
         // Check transaction hasn't already been released in batch
         uint256 releasableEpoch = getReleasableEpoch(_transactionId);
-        require(lastReleasedEpoch[transaction.courseId] < releasableEpoch, "Transaction already released");
+        require(lastReleasedEpoch[_profileId][transaction.token] < releasableEpoch, "Transaction already released");
 
         // Update balance releasable in batch for the epoch
-        releasableBalanceByEpoch[transaction.courseId][releasableEpoch] -= transaction.amount;
+        releasableBalanceByEpoch[_profileId][transaction.token][releasableEpoch] -= transaction.amount;
 
         _release(_transactionId, transaction.amount, false);
     }
 
     /**
-     * @notice Allows the receiver to release all the releasable transactions for a given course.
+     * @notice Allows the receiver to release all the releasable transactions funds for a given token.
      * @param _profileId The KnowledgeLayer ID of the user
+     * @param _tokenAddress Address of the token.
      */
-    function releaseAll(uint256 _profileId, uint256 _courseId) public onlyOwnerOrDelegate(_profileId) {
-        IKnowledgeLayerCourse.Course memory course = knowledgeLayerCourse.getCourse(_courseId);
-        require(course.ownerId == _profileId, "Not the owner");
-
-        uint256 releasableAmount = getReleasableBalance(_courseId);
+    function releaseAll(uint256 _profileId, address _tokenAddress) public onlyOwnerOrDelegate(_profileId) {
+        uint256 releasableAmount = getReleasableBalance(_profileId, _tokenAddress);
         require(releasableAmount > 0, "No balance to release");
 
         address receiver = knowledgeLayerId.ownerOf(_profileId);
-        _transferBalance(receiver, course.token, releasableAmount);
+        _transferBalance(receiver, _tokenAddress, releasableAmount);
 
         uint256 currentEpoch = getCurrentEpoch();
-        lastReleasedEpoch[_courseId] = currentEpoch;
+        lastReleasedEpoch[_profileId][_tokenAddress] = currentEpoch;
 
         // TODO: Emit event
     }
@@ -760,7 +759,7 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         Transaction storage transaction = transactions[_transactionId];
 
         uint256 releasableEpoch = getReleasableEpoch(_transactionId);
-        releasableBalanceByEpoch[transaction.courseId][releasableEpoch] += transaction.amount;
+        releasableBalanceByEpoch[_receiverId][transaction.token][releasableEpoch] += transaction.amount;
 
         _distributeFees(_transactionId, transaction.amount, releasableEpoch);
 

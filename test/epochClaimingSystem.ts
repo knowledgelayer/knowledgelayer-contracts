@@ -182,7 +182,8 @@ const escrowTests = (isEth: boolean) => {
       // The releasable balance for the epoch is the transaction amount, since it's the first transaction
       const releasableEpoch = await knowledgeLayerEscrow.getReleasableEpoch(firstTransactionId);
       const releasableBalance = await knowledgeLayerEscrow.releasableBalanceByEpoch(
-        courseId,
+        aliceId,
+        tokenAddress,
         releasableEpoch,
       );
 
@@ -218,7 +219,10 @@ const escrowTests = (isEth: boolean) => {
 
     it('The current releasable balance for the course is zero', async () => {
       // The current releasable balance for the course is zero, since no epoch has passed since the transaction
-      const releasableBalance = await knowledgeLayerEscrow.getReleasableBalance(courseId);
+      const releasableBalance = await knowledgeLayerEscrow.getReleasableBalance(
+        aliceId,
+        tokenAddress,
+      );
       expect(releasableBalance).to.be.equal(0);
     });
   });
@@ -253,7 +257,8 @@ const escrowTests = (isEth: boolean) => {
       // The transactions will become releasable in the same epoch
       // so the releasable balance for the epoch is the transaction amount * 2
       const releasableBalance = await knowledgeLayerEscrow.releasableBalanceByEpoch(
-        courseId,
+        aliceId,
+        tokenAddress,
         secondReleasableEpoch,
       );
 
@@ -295,14 +300,16 @@ const escrowTests = (isEth: boolean) => {
       // The transactions will become releasable in the next epoch relative to the previous two
       // so the releasable balance for the epoch of the second transaction is still the transaction amount * 2
       const secondReleasableBalance = await knowledgeLayerEscrow.releasableBalanceByEpoch(
-        courseId,
+        aliceId,
+        tokenAddress,
         secondReleasableEpoch,
       );
       expect(secondReleasableBalance).to.be.equal(transactionAmount.mul(2));
 
       // The releasable balance for the epoch of the third transaction is the transaction amount
       const thirdReleasableBalance = await knowledgeLayerEscrow.releasableBalanceByEpoch(
-        courseId,
+        aliceId,
+        tokenAddress,
         thirdReleasableEpoch,
       );
       expect(thirdReleasableBalance).to.be.equal(transactionAmount);
@@ -314,13 +321,19 @@ const escrowTests = (isEth: boolean) => {
       // The dispute period expires for the first two transactions.
       // TODO: do math to see why here is already releasable. Is already in next epoch?
       await time.increase(courseDisputePeriod);
-      const releasableBalance = await knowledgeLayerEscrow.getReleasableBalance(courseId);
+      const releasableBalance = await knowledgeLayerEscrow.getReleasableBalance(
+        aliceId,
+        tokenAddress,
+      );
       expect(releasableBalance).to.be.equal(transactionAmount.mul(2));
 
       // The dispute period expires also for the third transaction.
       const epochDuration = await knowledgeLayerEscrow.EPOCH_DURATION();
       await time.increase(epochDuration);
-      const releasableBalance2 = await knowledgeLayerEscrow.getReleasableBalance(courseId);
+      const releasableBalance2 = await knowledgeLayerEscrow.getReleasableBalance(
+        aliceId,
+        tokenAddress,
+      );
       expect(releasableBalance2).to.be.equal(transactionAmount.mul(3));
     });
   });
@@ -332,7 +345,8 @@ const escrowTests = (isEth: boolean) => {
       // Release second transaction
       releasableEpoch = await knowledgeLayerEscrow.getReleasableEpoch(secondTransactionId);
       releasableBalanceBefore = await knowledgeLayerEscrow.releasableBalanceByEpoch(
-        courseId,
+        aliceId,
+        tokenAddress,
         releasableEpoch,
       );
       tx = await knowledgeLayerEscrow.connect(alice).release(aliceId, secondTransactionId);
@@ -355,75 +369,74 @@ const escrowTests = (isEth: boolean) => {
 
     it('Updates releasable balance by epoch', async () => {
       const releasableBalance = await knowledgeLayerEscrow.releasableBalanceByEpoch(
-        courseId,
+        aliceId,
+        tokenAddress,
         releasableEpoch,
       );
       expect(releasableBalance).to.be.equal(releasableBalanceBefore.sub(transactionAmount));
     });
 
     it('Updates current releasable balance', async () => {
-      const releasableBalance = await knowledgeLayerEscrow.getReleasableBalance(courseId);
+      const releasableBalance = await knowledgeLayerEscrow.getReleasableBalance(
+        aliceId,
+        tokenAddress,
+      );
       expect(releasableBalance).to.be.equal(transactionAmount.mul(2));
     });
   });
 
   describe('Release all funds', async () => {
-    it("Fails if not the course's owner", async () => {
-      await expect(
-        knowledgeLayerEscrow.connect(bob).releaseAll(bobId, courseId),
-      ).to.be.revertedWith('Not the owner');
+    let tx: ContractTransaction, releasableBalance: BigNumber;
+
+    before(async () => {
+      releasableBalance = await knowledgeLayerEscrow.getReleasableBalance(aliceId, tokenAddress);
+
+      // Release all funds
+      tx = await knowledgeLayerEscrow.connect(alice).releaseAll(aliceId, tokenAddress);
     });
 
-    describe('Successfull release of all funds', async () => {
-      let tx: ContractTransaction, releasableBalance: BigNumber;
+    it('Transfers the funds of all the transactions to the course owner', async () => {
+      if (isEth) {
+        await expect(tx).to.changeEtherBalances(
+          [alice, knowledgeLayerEscrow],
+          [releasableBalance, releasableBalance.mul(-1)],
+        );
+      } else {
+        await expect(tx).to.changeTokenBalances(
+          simpleERC20,
+          [alice, knowledgeLayerEscrow],
+          [releasableBalance, releasableBalance.mul(-1)],
+        );
+      }
+    });
 
-      before(async () => {
-        releasableBalance = await knowledgeLayerEscrow.getReleasableBalance(courseId);
+    it('Updates last released epoch to the current epoch', async () => {
+      const currentEpoch = await knowledgeLayerEscrow.getCurrentEpoch();
+      const lastReleasedEpoch = await knowledgeLayerEscrow.lastReleasedEpoch(aliceId, tokenAddress);
+      expect(lastReleasedEpoch).to.be.equal(currentEpoch);
+    });
 
-        // Release all funds
-        tx = await knowledgeLayerEscrow.connect(alice).releaseAll(aliceId, courseId);
-      });
+    it('The current releasable balance for the course is zero', async () => {
+      const releasableBalance = await knowledgeLayerEscrow.getReleasableBalance(
+        aliceId,
+        tokenAddress,
+      );
+      expect(releasableBalance).to.be.equal(0);
+    });
 
-      it('Transfers the funds of all the transactions to the course owner', async () => {
-        if (isEth) {
-          await expect(tx).to.changeEtherBalances(
-            [alice, knowledgeLayerEscrow],
-            [releasableBalance, releasableBalance.mul(-1)],
-          );
-        } else {
-          await expect(tx).to.changeTokenBalances(
-            simpleERC20,
-            [alice, knowledgeLayerEscrow],
-            [releasableBalance, releasableBalance.mul(-1)],
-          );
-        }
-      });
+    it("Can't individually release a transaction if it's already been released in batch", async () => {
+      const releasableEpoch = await knowledgeLayerEscrow.getReleasableEpoch(firstTransactionId);
+      const lastReleasedEpoch = await knowledgeLayerEscrow.lastReleasedEpoch(aliceId, tokenAddress);
 
-      it('Updates last released epoch to the current epoch', async () => {
-        const currentEpoch = await knowledgeLayerEscrow.getCurrentEpoch();
-        const lastReleasedEpoch = await knowledgeLayerEscrow.lastReleasedEpoch(courseId);
-        expect(lastReleasedEpoch).to.be.equal(currentEpoch);
-      });
+      expect(lastReleasedEpoch).to.be.greaterThan(releasableEpoch);
 
-      it('The current releasable balance for the course is zero', async () => {
-        const releasableBalance = await knowledgeLayerEscrow.getReleasableBalance(courseId);
-        expect(releasableBalance).to.be.equal(0);
-      });
+      const tx = knowledgeLayerEscrow.connect(alice).release(aliceId, firstTransactionId);
+      await expect(tx).to.be.revertedWith('Transaction already released');
+    });
 
-      it("Can't individually release a transaction if it's already been released in batch", async () => {
-        const releasableEpoch = await knowledgeLayerEscrow.getReleasableEpoch(firstTransactionId);
-        const lastReleasedEpoch = await knowledgeLayerEscrow.lastReleasedEpoch(courseId);
-
-        expect(lastReleasedEpoch).to.be.greaterThan(releasableEpoch);
-
-        const tx = knowledgeLayerEscrow.connect(alice).release(aliceId, firstTransactionId);
-        await expect(tx).to.be.revertedWith('Transaction already released');
-      });
-
-      it("Can't release all funds again", async () => {
-        const tx = knowledgeLayerEscrow.connect(alice).releaseAll(aliceId, courseId);
-        await expect(tx).to.be.revertedWith('No balance to release');
-      });
+    it("Can't release all funds again", async () => {
+      const tx = knowledgeLayerEscrow.connect(alice).releaseAll(aliceId, tokenAddress);
+      await expect(tx).to.be.revertedWith('No balance to release');
     });
   });
 };
