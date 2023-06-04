@@ -407,6 +407,9 @@ contract KnowledgeLayerEscrow is Ownable, IArbitrable {
         require(transaction.status == TransactionStatus.NoDispute, "Transaction is in dispute");
         require(block.timestamp >= transaction.releasableAt, "Not yet releasable");
 
+        uint256 releasableEpoch = getReleasableEpoch(_transactionId);
+        require(lastReleasedEpoch[transaction.courseId] < releasableEpoch, "Transaction already released");
+
         _release(_transactionId, transaction.amount);
     }
 
